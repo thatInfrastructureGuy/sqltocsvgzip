@@ -95,12 +95,12 @@ func (c Converter) WriteFile(csvFileName string) error {
 
 // Write writes the CSV to the Writer provided
 func (c Converter) Write(writer io.Writer) error {
-	log.Println("In write function")
 	rows := c.rows
 
-	//var b bytes.Buffer
-	b := bytes.NewBuffer(make([]byte, 0, 50000))
-	csvWriter := csv.NewWriter(b)
+	csvRows := make([][]string, 4096, 4096)
+	//b := bytes.NewBuffer(make([]byte, 0, 5000))
+	var b bytes.Buffer
+	csvWriter := csv.NewWriter(&b)
 
 	zw := gzip.NewWriter(writer)
 	defer zw.Close()
@@ -114,9 +114,7 @@ func (c Converter) Write(writer io.Writer) error {
 		return err
 	}
 
-	log.Println(rows.Next())
 	if c.WriteHeaders {
-		log.Println("writing headers")
 		// use Headers if set, otherwise default to
 		// query Columns
 		var headers []string
@@ -125,30 +123,11 @@ func (c Converter) Write(writer io.Writer) error {
 		} else {
 			headers = columnNames
 		}
-		err = csvWriter.Write(headers)
-		if err != nil {
-			return err
-		}
-		log.Println(rows.Next())
-		log.Println("Flushing")
-		//csvWriter.Flush()
-		//err = csvWriter.Error()
-		//if err != nil {
-		//	log.Println(err)
-		//	return err
-		//}
-		log.Println(b.Len(), b.Cap())
-		log.Println("zipping")
-		_, err = zw.Write(b.Bytes())
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+		csvRows = append(csvRows, headers)
 		log.Println(b.Len(), b.Cap())
 		log.Println(rows.Next())
 	}
 
-	log.Println("zipping")
 	count := len(columnNames)
 	values := make([]interface{}, count)
 	valuePtrs := make([]interface{}, count)
@@ -195,19 +174,18 @@ func (c Converter) Write(writer io.Writer) error {
 			writeRow, row = c.rowPreProcessor(row, columnNames)
 		}
 		if writeRow {
-			err = csvWriter.Write(row)
-			if err != nil {
-				return err
-			}
-			csvWriter.Flush()
-			err = csvWriter.Error()
-			if err != nil {
-				return err
-			}
-			log.Println(b.String())
-			_, err = zw.Write(b.Bytes())
-			if err != nil {
-				return err
+			csvRows = append(csvRows, row)
+			if len(csvRows) >= 4096 {
+				err = csvWriter.WriteAll(csvRows)
+				if err != nil {
+					return err
+				}
+				_, err = zw.Write(b.Bytes())
+				if err != nil {
+					return err
+				}
+				csvRows = csvRows[:0]
+				b.Reset()
 			}
 		}
 	}
@@ -216,19 +194,18 @@ func (c Converter) Write(writer io.Writer) error {
 		return err
 	}
 
-	csvWriter.Flush()
-	err = csvWriter.Error()
+	err = csvWriter.WriteAll(csvRows)
 	if err != nil {
 		return err
 	}
-	log.Println(b.String())
 	_, err = zw.Write(b.Bytes())
 	if err != nil {
 		return err
 	}
+	csvRows = nil
 	b.Reset()
 
-	return err
+	return nil
 }
 
 // New will return a Converter which will write your CSV however you like
