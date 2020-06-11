@@ -101,6 +101,7 @@ func (c Converter) Write(writer io.Writer) error {
 	//b := bytes.NewBuffer(make([]byte, 0, 5000))
 	var b bytes.Buffer
 	csvWriter := csv.NewWriter(&b)
+	countRows := 0
 
 	zw := gzip.NewWriter(writer)
 	defer zw.Close()
@@ -125,17 +126,13 @@ func (c Converter) Write(writer io.Writer) error {
 		}
 		csvRows = append(csvRows, headers)
 		log.Println(b.Len(), b.Cap())
-		log.Println(rows.Next())
 	}
 
 	count := len(columnNames)
 	values := make([]interface{}, count)
 	valuePtrs := make([]interface{}, count)
 
-	log.Println(rows.Err())
-	log.Println(rows.Next())
 	for rows.Next() {
-		log.Println("in for loop")
 		row := make([]string, count)
 
 		for i, _ := range columnNames {
@@ -175,6 +172,7 @@ func (c Converter) Write(writer io.Writer) error {
 		}
 		if writeRow {
 			csvRows = append(csvRows, row)
+			countRows++
 			if len(csvRows) >= 4096 {
 				err = csvWriter.WriteAll(csvRows)
 				if err != nil {
@@ -205,6 +203,7 @@ func (c Converter) Write(writer io.Writer) error {
 	csvRows = nil
 	b.Reset()
 
+	log.Println("Number of rows: ", countRows)
 	return nil
 }
 
