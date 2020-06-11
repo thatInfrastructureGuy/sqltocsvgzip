@@ -93,7 +93,7 @@ func (c Converter) WriteFile(csvFileName string) error {
 	return f.Close()
 }
 
-// Write writes the CSV to the Writer provided
+// Write writes the csv.gzip to the Writer provided
 func (c Converter) Write(writer io.Writer) error {
 	rows := c.rows
 
@@ -125,7 +125,6 @@ func (c Converter) Write(writer io.Writer) error {
 			headers = columnNames
 		}
 		csvRows = append(csvRows, headers)
-		log.Println(b.Len(), b.Cap())
 	}
 
 	count := len(columnNames)
