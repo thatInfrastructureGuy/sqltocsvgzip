@@ -129,7 +129,6 @@ func (c Converter) Write(writer io.Writer) error {
 			return err
 		}
 		csvWriter.Flush()
-		log.Println(b.String())
 		if err != nil {
 			return err
 		}
@@ -188,7 +187,6 @@ func (c Converter) Write(writer io.Writer) error {
 			if err != nil {
 				return err
 			}
-			b.Reset()
 		}
 	}
 	err = rows.Err()
