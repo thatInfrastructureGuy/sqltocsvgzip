@@ -129,12 +129,12 @@ func (c Converter) Write(writer io.Writer) error {
 			return err
 		}
 		log.Println("Flushing")
-		csvWriter.Flush()
-		err = csvWriter.Error()
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+		//csvWriter.Flush()
+		//err = csvWriter.Error()
+		//if err != nil {
+		//	log.Println(err)
+		//	return err
+		//}
 		log.Println("zipping")
 		_, err = zw.Write(b.Bytes())
 		if err != nil {
@@ -143,6 +143,7 @@ func (c Converter) Write(writer io.Writer) error {
 		}
 	}
 
+	log.Println("zipping")
 	count := len(columnNames)
 	values := make([]interface{}, count)
 	valuePtrs := make([]interface{}, count)
