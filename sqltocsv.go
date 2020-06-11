@@ -98,8 +98,9 @@ func (c Converter) Write(writer io.Writer) error {
 	log.Println("In write function")
 	rows := c.rows
 
-	var b bytes.Buffer
-	csvWriter := csv.NewWriter(&b)
+	//var b bytes.Buffer
+	b := bytes.NewBuffer(make([]byte, 0, 5000))
+	csvWriter := csv.NewWriter(b)
 
 	zw := gzip.NewWriter(writer)
 	defer zw.Close()
@@ -128,11 +129,9 @@ func (c Converter) Write(writer io.Writer) error {
 			return err
 		}
 		log.Println(b.String())
-		_, err = zw.Write(b.Bytes())
 		if err != nil {
 			return err
 		}
-		b.Reset()
 		return nil
 	}
 
@@ -188,7 +187,6 @@ func (c Converter) Write(writer io.Writer) error {
 			if err != nil {
 				return err
 			}
-			b.Reset()
 		}
 	}
 	err = rows.Err()
