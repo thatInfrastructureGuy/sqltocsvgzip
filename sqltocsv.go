@@ -6,6 +6,7 @@ package sqltocsv
 
 import (
 	"bytes"
+	"compress/gzip"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
@@ -94,7 +95,13 @@ func (c Converter) WriteFile(csvFileName string) error {
 // Write writes the CSV to the Writer provided
 func (c Converter) Write(writer io.Writer) error {
 	rows := c.rows
-	csvWriter := csv.NewWriter(writer)
+
+	var b bytes.Buffer
+	csvWriter := csv.NewWriter(&b)
+
+	zw := gzip.NewWriter(writer)
+	defer zw.Close()
+
 	if c.Delimiter != '\x00' {
 		csvWriter.Comma = c.Delimiter
 	}
@@ -115,9 +122,14 @@ func (c Converter) Write(writer io.Writer) error {
 		}
 		err = csvWriter.Write(headers)
 		if err != nil {
-			// TODO wrap err to say it was an issue with headers?
 			return err
 		}
+		_, err = zw.Write(b.Bytes())
+		if err != nil {
+			return err
+		}
+		b.Reset()
+		return nil
 	}
 
 	count := len(columnNames)
@@ -165,14 +177,23 @@ func (c Converter) Write(writer io.Writer) error {
 		if writeRow {
 			err = csvWriter.Write(row)
 			if err != nil {
-				// TODO wrap this err to give context as to why it failed?
 				return err
 			}
+			_, err = zw.Write(b.Bytes())
+			if err != nil {
+				return err
+			}
+			b.Reset()
 		}
 	}
 	err = rows.Err()
 
 	csvWriter.Flush()
+	_, err = zw.Write(b.Bytes())
+	if err != nil {
+		return err
+	}
+	b.Reset()
 
 	return err
 }
