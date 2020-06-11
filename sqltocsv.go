@@ -95,6 +95,7 @@ func (c Converter) WriteFile(csvFileName string) error {
 
 // Write writes the CSV to the Writer provided
 func (c Converter) Write(writer io.Writer) error {
+	log.Println("In write function")
 	rows := c.rows
 
 	var b bytes.Buffer
@@ -113,6 +114,7 @@ func (c Converter) Write(writer io.Writer) error {
 	}
 
 	if c.WriteHeaders {
+		log.Println("writing headers")
 		// use Headers if set, otherwise default to
 		// query Columns
 		var headers []string
