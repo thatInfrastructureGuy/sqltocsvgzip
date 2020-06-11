@@ -114,6 +114,7 @@ func (c Converter) Write(writer io.Writer) error {
 		return err
 	}
 
+	log.Println(rows.Next())
 	if c.WriteHeaders {
 		log.Println("writing headers")
 		// use Headers if set, otherwise default to
@@ -128,6 +129,7 @@ func (c Converter) Write(writer io.Writer) error {
 		if err != nil {
 			return err
 		}
+		log.Println(rows.Next())
 		log.Println("Flushing")
 		//csvWriter.Flush()
 		//err = csvWriter.Error()
@@ -143,6 +145,7 @@ func (c Converter) Write(writer io.Writer) error {
 			return err
 		}
 		log.Println(b.Len(), b.Cap())
+		log.Println(rows.Next())
 	}
 
 	log.Println("zipping")
