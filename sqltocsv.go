@@ -133,7 +133,6 @@ func (c Converter) Write(writer io.Writer) error {
 		if err != nil {
 			return err
 		}
-		b.Reset()
 	}
 
 	count := len(columnNames)
