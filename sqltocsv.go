@@ -101,7 +101,7 @@ func (c Converter) Write(writer io.Writer) error {
 	//b := bytes.NewBuffer(make([]byte, 0, 5000))
 	var b bytes.Buffer
 	csvWriter := csv.NewWriter(&b)
-	countRows := 0
+	var countRows int64
 
 	zw := gzip.NewWriter(writer)
 	defer zw.Close()
