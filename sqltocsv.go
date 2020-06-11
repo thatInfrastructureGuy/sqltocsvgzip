@@ -133,7 +133,7 @@ func (c Converter) Write(writer io.Writer) error {
 		if err != nil {
 			return err
 		}
-		return nil
+		b.Reset()
 	}
 
 	count := len(columnNames)
@@ -184,11 +184,12 @@ func (c Converter) Write(writer io.Writer) error {
 			if err != nil {
 				return err
 			}
-			log.Println(b.String())
+			csvWriter.Flush()
 			_, err = zw.Write(b.Bytes())
 			if err != nil {
 				return err
 			}
+			b.Reset()
 		}
 	}
 	err = rows.Err()
