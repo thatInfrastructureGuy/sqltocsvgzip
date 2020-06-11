@@ -128,6 +128,7 @@ func (c Converter) Write(writer io.Writer) error {
 		if err != nil {
 			return err
 		}
+		csvWriter.Flush()
 		log.Println(b.String())
 		if err != nil {
 			return err
@@ -140,6 +141,7 @@ func (c Converter) Write(writer io.Writer) error {
 	valuePtrs := make([]interface{}, count)
 
 	for rows.Next() {
+		log.Println("in for loop")
 		row := make([]string, count)
 
 		for i, _ := range columnNames {
