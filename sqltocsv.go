@@ -128,13 +128,17 @@ func (c Converter) Write(writer io.Writer) error {
 		if err != nil {
 			return err
 		}
+		log.Println("Flushing")
 		csvWriter.Flush()
 		err = csvWriter.Error()
 		if err != nil {
+			log.Println(err)
 			return err
 		}
+		log.Println("zipping")
 		_, err = zw.Write(b.Bytes())
 		if err != nil {
+			log.Println(err)
 			return err
 		}
 	}
