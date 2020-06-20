@@ -16,13 +16,13 @@ import (
 	"time"
 )
 
-const batchSize = 4096
+const sqlBatchSize = 4096
 
 // WriteFile will write a CSV file to the file name specified (with headers)
 // based on whatever is in the sql.Rows you pass in. It calls WriteCsvToWriter under
 // the hood.
-func WriteFile(csvFileName string, rows *sql.Rows) error {
-	return New(rows).WriteFile(csvFileName)
+func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
+	return New(rows).WriteFile(csvGzipFileName)
 }
 
 // WriteString will return a string of the CSV. Don't use this unless you've
@@ -79,9 +79,9 @@ func (c Converter) WriteString() (string, error) {
 	return buffer.String(), err
 }
 
-// WriteFile writes the CSV to the filename specified, return an error if problem
-func (c Converter) WriteFile(csvFileName string) error {
-	f, err := os.Create(csvFileName)
+// WriteFile writes the csv.gzip to the filename specified, return an error if problem
+func (c Converter) WriteFile(csvGzipFileName string) error {
+	f, err := os.Create(csvGzipFileName)
 	if err != nil {
 		return err
 	}
@@ -98,30 +98,39 @@ func (c Converter) WriteFile(csvFileName string) error {
 // Write writes the csv.gzip to the Writer provided
 func (c Converter) Write(writer io.Writer) error {
 	var countRows int64
-	var b bytes.Buffer
 	writeRow := true
-	csvRows := make([][]string, 0, batchSize)
 	rows := c.rows
 
-	csvWriter := csv.NewWriter(&b)
+	// Buffer size: string bytes x sqlBatchSize x No. of Columns
+	// For default buffer size 4096 and 5 columns
+	// 16 x 4096 x 5 = 320K
+	sqlRowBatch := make([][]string, 0, sqlBatchSize)
 
+	// Same size as sqlRowBatch: 320K
+	var csvBuffer bytes.Buffer
+
+	// CSV writer to csvBuffer
+	csvWriter := csv.NewWriter(&csvBuffer)
+
+	// GZIP writer to underline file.csv.gzip
 	zw := gzip.NewWriter(writer)
 	defer zw.Close()
 
+	// Set delimiter
 	if c.Delimiter != '\x00' {
 		csvWriter.Comma = c.Delimiter
 	}
 
+	// Set headers
 	columnNames, err := c.setCSVHeaders()
 	if err != nil {
 		return nil
 	}
+	sqlRowBatch = append(sqlRowBatch, columnNames)
 
-	csvRows = append(csvRows, columnNames)
-
-	count := len(columnNames)
-	row := make([]string, count, count)
-	values, valuePtrs := make([]interface{}, count, count), make([]interface{}, count, count)
+	// Buffers for each iteration
+	values := make([]interface{}, len(columnNames), len(columnNames))
+	valuePtrs := make([]interface{}, len(columnNames), len(columnNames))
 
 	for i := range columnNames {
 		valuePtrs[i] = &values[i]
@@ -132,26 +141,33 @@ func (c Converter) Write(writer io.Writer) error {
 			return err
 		}
 
-		c.setDataTypes(values, row)
+		row := c.stringify(values)
 
 		if c.rowPreProcessor != nil {
 			writeRow, row = c.rowPreProcessor(row, columnNames)
 		}
 
 		if writeRow {
-			csvRows = append(csvRows, row)
+			sqlRowBatch = append(sqlRowBatch, row)
 			countRows++
-			if len(csvRows) >= batchSize {
-				err = csvWriter.WriteAll(csvRows)
+			if len(sqlRowBatch) >= sqlBatchSize {
+				// Convert from sql to csv
+				// Writes to buffer
+				err = csvWriter.WriteAll(sqlRowBatch)
 				if err != nil {
 					return err
 				}
-				_, err = zw.Write(b.Bytes())
+
+				// Convert from csv to gzip
+				// Writes from buffer to underlying file
+				_, err = zw.Write(csvBuffer.Bytes())
 				if err != nil {
 					return err
 				}
-				csvRows = csvRows[:0]
-				b.Reset()
+
+				// Reset buffer
+				sqlRowBatch = sqlRowBatch[:0]
+				csvBuffer.Reset()
 			}
 		}
 	}
@@ -160,16 +176,19 @@ func (c Converter) Write(writer io.Writer) error {
 		return err
 	}
 
-	err = csvWriter.WriteAll(csvRows)
+	// Flush the remaining buffer to file.
+	err = csvWriter.WriteAll(sqlRowBatch)
 	if err != nil {
 		return err
 	}
-	_, err = zw.Write(b.Bytes())
+	_, err = zw.Write(csvBuffer.Bytes())
 	if err != nil {
 		return err
 	}
-	csvRows = nil
-	b.Reset()
+
+	//Wipe the buffer
+	sqlRowBatch = nil
+	csvBuffer.Reset()
 
 	log.Println("Total number of sql rows processed: ", countRows)
 	return nil
@@ -195,9 +214,11 @@ func (c Converter) setCSVHeaders() ([]string, error) {
 	return headers, nil
 }
 
-func (c Converter) setDataTypes(values []interface{}, row []string) {
+func (c Converter) stringify(values []interface{}) []string {
+	row := make([]string, len(values), len(values))
+	var value interface{}
+
 	for i := range values {
-		var value interface{}
 		rawValue := values[i]
 
 		byteArray, ok := rawValue.([]byte)
@@ -218,6 +239,8 @@ func (c Converter) setDataTypes(values []interface{}, row []string) {
 			row[i] = fmt.Sprintf("%v", value)
 		}
 	}
+
+	return row
 }
 
 // New will return a Converter which will write your CSV however you like
