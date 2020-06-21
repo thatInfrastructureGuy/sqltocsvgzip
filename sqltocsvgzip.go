@@ -191,6 +191,7 @@ func (c Converter) Write(writer io.Writer) error {
 	csvBuffer.Reset()
 
 	log.Println("Total number of sql rows processed: ", countRows)
+	time.Sleep(6 * time.Second)
 	return nil
 }
 
