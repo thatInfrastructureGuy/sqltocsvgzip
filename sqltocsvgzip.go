@@ -2,7 +2,7 @@
 // results (in the form of database/sql Rows) into CSV output.
 //
 // Source and README at https://github.com/joho/sqltocsv
-package sqltocsv
+package sqltocsvgzip
 
 import (
 	"bytes"

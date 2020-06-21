@@ -1,4 +1,4 @@
-package sqltocsv_test
+package sqltocsvgzip_test
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joho/sqltocsv"
+	"github.com/thatinfrastructureguy/sqltocsvgzip"
 )
 
 func init() {
@@ -18,7 +18,7 @@ func init() {
 func TestWriteFile(t *testing.T) {
 	checkQueryAgainstResult(t, func(rows *sql.Rows) string {
 		testCsvFileName := "/tmp/test.csv"
-		err := sqltocsv.WriteFile(testCsvFileName, rows)
+		err := sqltocsvgzip.WriteFile(testCsvFileName, rows)
 		if err != nil {
 			t.Fatalf("error in WriteCsvToFile: %v", err)
 		}
@@ -36,7 +36,7 @@ func TestWrite(t *testing.T) {
 	checkQueryAgainstResult(t, func(rows *sql.Rows) string {
 		buffer := &bytes.Buffer{}
 
-		err := sqltocsv.Write(buffer, rows)
+		err := sqltocsvgzip.Write(buffer, rows)
 		if err != nil {
 			t.Fatalf("error in WriteCsvToWriter: %v", err)
 		}
@@ -48,7 +48,7 @@ func TestWrite(t *testing.T) {
 func TestWriteString(t *testing.T) {
 	checkQueryAgainstResult(t, func(rows *sql.Rows) string {
 
-		csv, err := sqltocsv.WriteString(rows)
+		csv, err := sqltocsvgzip.WriteString(rows)
 		if err != nil {
 			t.Fatalf("error in WriteCsvToWriter: %v", err)
 		}
@@ -118,7 +118,7 @@ func TestSetTimeFormat(t *testing.T) {
 }
 
 func TestConvertingNilValueShouldReturnEmptyString(t *testing.T) {
-	converter := sqltocsv.New(getTestRowsByQuery(t, "SELECT|people|name,nickname,age|"))
+	converter := sqltocsvgzip.New(getTestRowsByQuery(t, "SELECT|people|name,nickname,age|"))
 
 	expected := "name,nickname,age\nAlice,,1\n"
 	actual := converter.String()
@@ -174,8 +174,8 @@ func getTestRowsByQuery(t *testing.T, query string) *sql.Rows {
 	return rows
 }
 
-func getConverter(t *testing.T) *sqltocsv.Converter {
-	return sqltocsv.New(getTestRows(t))
+func getConverter(t *testing.T) *sqltocsvgzip.Converter {
+	return sqltocsvgzip.New(getTestRows(t))
 }
 
 func setupDatabase(t *testing.T) *sql.DB {
