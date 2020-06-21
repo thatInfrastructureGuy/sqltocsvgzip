@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thatinfrastructureguy/sqltocsvgzip"
+	"github.com/thatInfrastructureGuy/sqltocsvgzip"
 )
 
 func init() {
