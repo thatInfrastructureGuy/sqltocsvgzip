@@ -17,15 +17,15 @@ func init() {
 
 func TestWriteFile(t *testing.T) {
 	checkQueryAgainstResult(t, func(rows *sql.Rows) string {
-		testCsvFileName := "/tmp/test.csv"
-		err := sqltocsvgzip.WriteFile(testCsvFileName, rows)
+		testGzipFileName := "/tmp/test.csv.gzip"
+		err := sqltocsvgzip.WriteFile(testGzipFileName, rows)
 		if err != nil {
 			t.Fatalf("error in WriteCsvToFile: %v", err)
 		}
 
-		bytes, err := ioutil.ReadFile(testCsvFileName)
+		bytes, err := ioutil.ReadFile(testGzipFileName)
 		if err != nil {
-			t.Fatalf("error reading %v: %v", testCsvFileName, err)
+			t.Fatalf("error reading %v: %v", testGzipFileName, err)
 		}
 
 		return string(bytes[:])
@@ -38,7 +38,7 @@ func TestWrite(t *testing.T) {
 
 		err := sqltocsvgzip.Write(buffer, rows)
 		if err != nil {
-			t.Fatalf("error in WriteCsvToWriter: %v", err)
+			t.Fatalf("error in WriteGzipToWriter: %v", err)
 		}
 
 		return buffer.String()
@@ -50,7 +50,7 @@ func TestWriteString(t *testing.T) {
 
 		csv, err := sqltocsvgzip.WriteString(rows)
 		if err != nil {
-			t.Fatalf("error in WriteCsvToWriter: %v", err)
+			t.Fatalf("error in WriteGzipToWriter: %v", err)
 		}
 
 		return csv
