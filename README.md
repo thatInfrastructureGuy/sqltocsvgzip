@@ -33,7 +33,7 @@ if err != nil {
 }
 ```
 
-Return a query as a CSV download on the world wide web
+Return a query as a GZIP download on the world wide web
 
 ```go
 http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -44,11 +44,11 @@ http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     }
     defer rows.Close()
 
-    w.Header().Set("Content-type", "text/csv")
+    w.Header().Set("Content-Type", "text/csv")
     w.Header().Set("Content-Encoding", "gzip")
-    w.Header().Set("Content-Disposition", "attachment; filename=\"report.csv\"")
+    w.Header().Set("Content-Disposition", "attachment; filename=\"report.csv.gzip\"")
 
-    sqltocsv.Write(w, rows)
+    sqltocsvgzip.Write(w, rows)
 })
 http.ListenAndServe(":8080", nil)
 ```
