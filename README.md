@@ -8,8 +8,6 @@ retrive sql rows ->  create csv file -> convert to gzip -> remove csv file
 
 With sqltocsvgzip, you can do in a single step.
 
-Credits to @joho for his original work on [joho/sqltocsv](github.com/joho/sqltocsv)
-
 ## Usage
 
 Importing the package
@@ -81,5 +79,10 @@ csvConverter.SetRowPreProcessor(func (columns []string) (bool, []string) {
 csvConverter.WriteFile("~/important_user_report.csv.gzip")
 ```
 
+---
+
 For more details on what else you can do to the `Converter` see the [sqltocsvgzip godocs](https://pkg.go.dev/github.com/thatInfrastructureGuy/sqltocsvgzip)
 
+---
+
+Credits to @joho for his work on [joho/sqltocsv](github.com/joho/sqltocsv)
