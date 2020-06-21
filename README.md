@@ -45,6 +45,7 @@ http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     defer rows.Close()
 
     w.Header().Set("Content-type", "text/csv")
+    w.Header().Set("Content-Encoding", "gzip")
     w.Header().Set("Content-Disposition", "attachment; filename=\"report.csv\"")
 
     sqltocsv.Write(w, rows)
@@ -80,5 +81,5 @@ csvConverter.SetRowPreProcessor(func (columns []string) (bool, []string) {
 csvConverter.WriteFile("~/important_user_report.csv.gzip")
 ```
 
-For more details on what else you can do to the `Converter` see the [sqltocsvgzip godocs](http://godoc.org/github.com/thatinfrastructureguy/sqltocsvgzip)
+For more details on what else you can do to the `Converter` see the [sqltocsvgzip godocs](https://pkg.go.dev/github.com/thatInfrastructureGuy/sqltocsvgzip)
 
