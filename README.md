@@ -1,6 +1,14 @@
-# sqltocsv [![Build Status](https://travis-ci.org/joho/sqltocsv.svg?branch=master)](https://travis-ci.org/joho/sqltocsv)
+# sqltocsvgzip [![Build Status](https://travis-ci.org/thatinfrastructureguy/sqltocsvgzip.svg?branch=master)](https://travis-ci.org/thatinfrastructureguy/sqltocsvgzip)
 
-A library designed to let you easily turn any arbitrary sql.Rows result from a query into a CSV file with a minimum of fuss. Remember to handle your errors and close your rows (not demonstrated in every example).
+A library designed to convert sql.Rows result from a query into a CSV.GZIP file. Normally creating a gzip file from sql is a multi-step process:
+
+```
+retrive sql rows ->  create csv file -> convert to gzip -> remove csv file
+```
+
+With sqltocsvgzip, you can do in a single step.
+
+Credits to @joho for his original work on [joho/sqltocsv](github.com/joho/sqltocsv)
 
 ## Usage
 
@@ -10,17 +18,16 @@ Importing the package
 import (
     "database/sql"
     _ "github.com/go-sql-driver/mysql" // or the driver of your choice
-    "github.com/joho/sqltocsv"
+    "github.com/thatinfrastructureguy/sqltocsvgzip"
 )
 ```
 
 Dumping a query to a file
 
 ```go
-// we're assuming you've setup your sql.DB etc elsewhere
 rows, _ := db.Query("SELECT * FROM users WHERE something=72")
 
-err := sqltocsv.WriteFile("~/important_user_report.csv", rows)
+err := sqltocsvgzip.WriteFile("~/important_user_report.csv.gzip", rows)
 if err != nil {
     panic(err)
 }
@@ -50,7 +57,7 @@ http.ListenAndServe(":8080", nil)
 ```go
 rows, _ := db.Query("SELECT * FROM users WHERE something=72")
 
-csvConverter := sqltocsv.New(rows)
+csvConverter := sqltocsvgzip.New(rows)
 
 csvConverter.TimeFormat = time.RFC822
 csvConverter.Headers = append(rows.Columns(), "extra_column_one", "extra_column_two")
@@ -70,11 +77,8 @@ csvConverter.SetRowPreProcessor(func (columns []string) (bool, []string) {
     return append(columns, extra_column_one, extra_column_two)
 })
 
-csvConverter.WriteFile("~/important_user_report.csv")
+csvConverter.WriteFile("~/important_user_report.csv.gzip")
 ```
 
-For more details on what else you can do to the `Converter` see the [sqltocsv godocs](http://godoc.org/github.com/joho/sqltocsv)
+For more details on what else you can do to the `Converter` see the [sqltocsvgzip godocs](http://godoc.org/github.com/thatinfrastructureguy/sqltocsvgzip)
 
-## License
-
-&copy; [John Barton](https://johnbarton.co/) but under MIT (see [LICENSE](LICENSE)) except for fakedb_test.go which I lifted from the Go standard library and is under BSD and I am unsure what that means legally.
