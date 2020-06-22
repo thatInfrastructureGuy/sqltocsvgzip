@@ -147,8 +147,8 @@ func (c Converter) Write(writer io.Writer) error {
 
 		if writeRow {
 			sqlRowBatch = append(sqlRowBatch, row)
-			countRows++
 			if len(sqlRowBatch) >= sqlBatchSize {
+				countRows = countRows + int64(len(sqlRowBatch))
 				// Convert from sql to csv
 				// Writes to buffer
 				err = csvWriter.WriteAll(sqlRowBatch)
