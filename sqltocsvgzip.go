@@ -175,6 +175,7 @@ func (c Converter) Write(writer io.Writer) error {
 	}
 
 	// Flush the remaining buffer to file.
+	countRows = countRows + int64(len(sqlRowBatch))
 	err = csvWriter.WriteAll(sqlRowBatch)
 	if err != nil {
 		return err
