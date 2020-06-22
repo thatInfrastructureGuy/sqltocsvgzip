@@ -101,11 +101,9 @@ func (c Converter) Write(writer io.Writer) error {
 	rows := c.rows
 
 	// Buffer size: string bytes x sqlBatchSize x No. of Columns
-	// For default buffer size 4096 and 5 columns
-	// 16 x 4096 x 5 = 320K
 	sqlRowBatch := make([][]string, 0, sqlBatchSize)
 
-	// Same size as sqlRowBatch: 320K
+	// Same size as sqlRowBatch
 	var csvBuffer bytes.Buffer
 
 	// CSV writer to csvBuffer
