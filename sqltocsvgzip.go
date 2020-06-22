@@ -11,7 +11,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"time"
 )
@@ -160,21 +159,14 @@ func (c Converter) Write(writer io.Writer) error {
 
 				// Convert from csv to gzip
 				// Writes from buffer to underlying file
-				bytesWritten, err := zw.Write(csvBuffer.Bytes())
+				_, err = zw.Write(csvBuffer.Bytes())
 				if err != nil {
 					return err
 				}
 
-				log.Println(len(sqlRowBatch))
-				log.Println(csvBuffer.Len())
-				log.Println(bytesWritten)
-
 				// Reset buffer
 				sqlRowBatch = sqlRowBatch[:0]
 				csvBuffer.Reset()
-
-				log.Println(len(sqlRowBatch))
-				log.Println(csvBuffer.Len())
 			}
 		}
 	}
@@ -188,21 +180,15 @@ func (c Converter) Write(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	bytesWritten, err := zw.Write(csvBuffer.Bytes())
+	_, err = zw.Write(csvBuffer.Bytes())
 	if err != nil {
 		return err
 	}
 
-	log.Println(len(sqlRowBatch))
-	log.Println(csvBuffer.Len())
-	log.Println(bytesWritten)
 	//Wipe the buffer
 	sqlRowBatch = nil
 	csvBuffer.Reset()
 
-	log.Println(len(sqlRowBatch))
-	log.Println(csvBuffer.Len())
-	log.Println("Total number of sql rows processed: ", countRows)
 	return nil
 }
 
