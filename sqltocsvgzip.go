@@ -11,6 +11,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"time"
 )
@@ -186,6 +187,9 @@ func (c Converter) Write(writer io.Writer) error {
 	//Wipe the buffer
 	sqlRowBatch = nil
 	csvBuffer.Reset()
+
+	// Log the total number of rows processed.
+	log.Println("Total number of sql rows processed: ", countRows)
 
 	return nil
 }
