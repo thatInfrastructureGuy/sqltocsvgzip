@@ -291,7 +291,7 @@ func (c *Converter) getSqlBatchSize(totalColumns int) int {
 	// (SqlBatchSize X TotalColumns) > 65536
 
 	log.Println("Using multithread")
-	for (c.SqlBatchSize * totalColumns) > 65536 {
+	for (c.SqlBatchSize * totalColumns) <= 65536 {
 		c.SqlBatchSize = c.SqlBatchSize * 2
 	}
 
