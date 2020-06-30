@@ -131,7 +131,6 @@ func (c *Converter) Write(writer io.Writer) error {
 
 	// Buffer size: string bytes x sqlBatchSize x No. of Columns
 	sqlBatchSize := c.getSqlBatchSize(totalColumns)
-	log.Println("10. sqlBatchSize: ", sqlBatchSize)
 
 	// Create buffer
 	sqlRowBatch := make([][]string, 0, sqlBatchSize)
@@ -160,7 +159,7 @@ func (c *Converter) Write(writer io.Writer) error {
 
 		if writeRow {
 			sqlRowBatch = append(sqlRowBatch, row)
-			if len(sqlRowBatch) >= c.SqlBatchSize {
+			if len(sqlRowBatch) >= sqlBatchSize {
 				countRows = countRows + int64(len(sqlRowBatch))
 				// Convert from sql to csv
 				// Writes to buffer
@@ -171,16 +170,9 @@ func (c *Converter) Write(writer io.Writer) error {
 
 				// Convert from csv to gzip
 				// Writes from buffer to underlying file
-				bytesWritten, err := zw.Write(csvBuffer.Bytes())
+				_, err = zw.Write(csvBuffer.Bytes())
 				if err != nil {
 					return err
-				}
-
-				if true {
-					log.Println("sqlRowBatch: ", len(sqlRowBatch))
-					log.Println("CSV Bytes written: ", csvBuffer.Len())
-					log.Println("ZIP Bytes written: ", bytesWritten)
-					return nil
 				}
 
 				// Reset buffer
