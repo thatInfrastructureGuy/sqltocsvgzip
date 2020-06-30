@@ -101,9 +101,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(writer io.Writer) error {
-	var zw io.WriteCloser
 	var countRows int64
-	var err error
 	writeRow := true
 	rows := c.rows
 
@@ -125,11 +123,7 @@ func (c *Converter) Write(writer io.Writer) error {
 	}
 
 	// GZIP writer to underline file.csv.gzip
-	if c.SingleThreaded {
-		zw, err = gzip.NewWriterLevel(writer, c.CompressionLevel)
-	} else {
-		zw, err = pgzip.NewWriterLevel(writer, c.CompressionLevel)
-	}
+	zw, err := c.selectCompressionMethod(writer)
 	if err != nil {
 		return err
 	}
@@ -138,8 +132,10 @@ func (c *Converter) Write(writer io.Writer) error {
 	// Buffer size: string bytes x sqlBatchSize x No. of Columns
 	sqlBatchSize := c.getSqlBatchSize(totalColumns)
 
+	// Create buffer
 	sqlRowBatch := make([][]string, 0, sqlBatchSize)
 
+	// Append headers
 	sqlRowBatch = append(sqlRowBatch, columnNames)
 
 	// Buffers for each iteration
@@ -260,6 +256,8 @@ func (c *Converter) stringify(values []interface{}) []string {
 	return row
 }
 
+// getSqlBatchSize gets the size of rows to be retrieved.
+// This batch is worked upon entirely before flushing to disk.
 func (c *Converter) getSqlBatchSize(totalColumns int) int {
 	// Use sqlBatchSize set by user
 	if c.SqlBatchSize != 0 {
@@ -285,6 +283,19 @@ func (c *Converter) getSqlBatchSize(totalColumns int) int {
 	}
 
 	return c.SqlBatchSize
+}
+
+func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, error) {
+	// Use gzip if single threaded
+	if c.SingleThreaded {
+		zw, err := gzip.NewWriterLevel(writer, c.CompressionLevel)
+		return zw, err
+	}
+
+	// Use pgzip if multi-threaded
+	zw, err := pgzip.NewWriterLevel(writer, c.CompressionLevel)
+	zw.SetConcurrency(100000, 10)
+	return zw, err
 }
 
 // New will return a Converter which will write your CSV however you like
