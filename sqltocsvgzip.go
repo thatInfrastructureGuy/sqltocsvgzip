@@ -129,10 +129,11 @@ func (c *Converter) Write(writer io.Writer) error {
 	}
 	defer zw.Close()
 
+	log.Println("1. sqlBatchSize: ", c.SqlBatchSize)
 	// Buffer size: string bytes x sqlBatchSize x No. of Columns
 	sqlBatchSize := c.getSqlBatchSize(totalColumns)
 	log.Println("totalColumns: ", totalColumns)
-	log.Println("sqlBatchSize: ", sqlBatchSize)
+	log.Println("10. sqlBatchSize: ", sqlBatchSize)
 
 	// Create buffer
 	sqlRowBatch := make([][]string, 0, sqlBatchSize)
@@ -162,7 +163,6 @@ func (c *Converter) Write(writer io.Writer) error {
 		if writeRow {
 			sqlRowBatch = append(sqlRowBatch, row)
 			if len(sqlRowBatch) >= c.SqlBatchSize {
-				log.Println("sqlRowBatch: ", len(sqlRowBatch))
 				countRows = countRows + int64(len(sqlRowBatch))
 				// Convert from sql to csv
 				// Writes to buffer
@@ -177,8 +177,13 @@ func (c *Converter) Write(writer io.Writer) error {
 				if err != nil {
 					return err
 				}
-				log.Println("CSV Bytes written: ", csvBuffer.Len())
-				log.Println("ZIP Bytes written: ", bytesWritten)
+
+				if true {
+					log.Println("sqlRowBatch: ", len(sqlRowBatch))
+					log.Println("CSV Bytes written: ", csvBuffer.Len())
+					log.Println("ZIP Bytes written: ", bytesWritten)
+					return nil
+				}
 
 				// Reset buffer
 				sqlRowBatch = sqlRowBatch[:0]
@@ -197,12 +202,10 @@ func (c *Converter) Write(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	bytesWritten, err := zw.Write(csvBuffer.Bytes())
+	_, err = zw.Write(csvBuffer.Bytes())
 	if err != nil {
 		return err
 	}
-	log.Println("CSV Bytes written: ", csvBuffer.Len())
-	log.Println("ZIP Bytes written: ", bytesWritten)
 
 	//Wipe the buffer
 	sqlRowBatch = nil
@@ -270,11 +273,13 @@ func (c *Converter) getSqlBatchSize(totalColumns int) int {
 	if c.SqlBatchSize != 0 {
 		return c.SqlBatchSize
 	}
+
 	// Default to 4096
 	c.SqlBatchSize = 4096
 
 	// Use Default value when Single thread.
 	if c.SingleThreaded {
+		log.Println("Using single thread")
 		return c.SqlBatchSize
 	}
 
@@ -285,10 +290,12 @@ func (c *Converter) getSqlBatchSize(totalColumns int) int {
 	// String = 16 bytes
 	// (SqlBatchSize X TotalColumns) > 65536
 
+	log.Println("Using multithread")
 	for (c.SqlBatchSize * totalColumns) > 65536 {
-		c.SqlBatchSize = c.SqlBatchSize + c.SqlBatchSize
+		c.SqlBatchSize = c.SqlBatchSize * 2
 	}
 
+	log.Println("Batch size calculated: ", c.SqlBatchSize)
 	return c.SqlBatchSize
 }
 
