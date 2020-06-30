@@ -2,5 +2,3 @@ github.com/klauspost/compress v1.10.10 h1:a/y8CglcM7gLGYmlbP/stPE5sR3hbhFRUjCBfd
 github.com/klauspost/compress v1.10.10/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdYsUV+/s2qKfXs=
 github.com/klauspost/pgzip v1.2.4 h1:TQ7CNpYKovDOmqzRHKxJh0BeaBI7UdQZYc6p7pMQh1A=
 github.com/klauspost/pgzip v1.2.4/go.mod h1:Ch1tH69qFZu15pkjo5kYi6mth2Zzwzt50oCQKQE9RUs=
-github.com/thatInfrastructureGuy/sqltocsvgzip v0.0.0-20200622191859-e82e3a42020b h1:83B1npTK8jov3D0KOMZDK684bxE+DH0bPpgmLd3U/Fk=
-github.com/thatInfrastructureGuy/sqltocsvgzip v0.0.0-20200622191859-e82e3a42020b/go.mod h1:QqbUgH44z2Epp1GWAwYILkIt/lMfmC4i8u2xCJWZpAg=
