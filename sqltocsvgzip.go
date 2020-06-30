@@ -129,10 +129,8 @@ func (c *Converter) Write(writer io.Writer) error {
 	}
 	defer zw.Close()
 
-	log.Println("1. sqlBatchSize: ", c.SqlBatchSize)
 	// Buffer size: string bytes x sqlBatchSize x No. of Columns
 	sqlBatchSize := c.getSqlBatchSize(totalColumns)
-	log.Println("totalColumns: ", totalColumns)
 	log.Println("10. sqlBatchSize: ", sqlBatchSize)
 
 	// Create buffer
@@ -279,7 +277,6 @@ func (c *Converter) getSqlBatchSize(totalColumns int) int {
 
 	// Use Default value when Single thread.
 	if c.SingleThreaded {
-		log.Println("Using single thread")
 		return c.SqlBatchSize
 	}
 
@@ -290,12 +287,13 @@ func (c *Converter) getSqlBatchSize(totalColumns int) int {
 	// String = 16 bytes
 	// (SqlBatchSize X TotalColumns) > 65536
 
-	log.Println("Using multithread")
 	for (c.SqlBatchSize * totalColumns) <= 65536 {
 		c.SqlBatchSize = c.SqlBatchSize * 2
 	}
 
-	log.Println("Batch size calculated: ", c.SqlBatchSize)
+	// We aim for 1.5 MB - 2 MB to be on a safe side
+	c.SqlBatchSize = c.SqlBatchSize * 2
+
 	return c.SqlBatchSize
 }
 
@@ -308,7 +306,7 @@ func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, e
 
 	// Use pgzip if multi-threaded
 	zw, err := pgzip.NewWriterLevel(writer, c.CompressionLevel)
-	zw.SetConcurrency(100000, 10)
+	zw.SetConcurrency(180000, 6)
 	return zw, err
 }
 
