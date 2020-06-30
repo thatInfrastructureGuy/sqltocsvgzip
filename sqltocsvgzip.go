@@ -6,7 +6,7 @@ package sqltocsvgzip
 
 import (
 	"bytes"
-	"compress/gzip"
+	"compress/flate"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
@@ -14,9 +14,10 @@ import (
 	"log"
 	"os"
 	"time"
-)
 
-const sqlBatchSize = 4096
+	"github.com/klauspost/compress/gzip"
+	"github.com/klauspost/pgzip"
+)
 
 // WriteFile will write a CSV file to the file name specified (with headers)
 // based on whatever is in the sql.Rows you pass in. It calls WriteCsvToWriter under
@@ -49,10 +50,13 @@ type CsvPreProcessorFunc func(row []string, columnNames []string) (outputRow boo
 // There are a few settings you can override if you want to do
 // some fancy stuff to your CSV.
 type Converter struct {
-	Headers      []string // Column headers to use (default is rows.Columns())
-	WriteHeaders bool     // Flag to output headers in your CSV (default is true)
-	TimeFormat   string   // Format string for any time.Time values (default is time's default)
-	Delimiter    rune     // Delimiter to use in your CSV (default is comma)
+	Headers          []string // Column headers to use (default is rows.Columns())
+	WriteHeaders     bool     // Flag to output headers in your CSV (default is true)
+	TimeFormat       string   // Format string for any time.Time values (default is time's default)
+	Delimiter        rune     // Delimiter to use in your CSV (default is comma)
+	SqlBatchSize     int
+	CompressionLevel int
+	SingleThreaded   bool
 
 	rows            *sql.Rows
 	rowPreProcessor CsvPreProcessorFunc
@@ -64,7 +68,7 @@ func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
 }
 
 // String returns the CSV as a string in an fmt package friendly way
-func (c Converter) String() string {
+func (c *Converter) String() string {
 	csv, err := c.WriteString()
 	if err != nil {
 		return ""
@@ -73,14 +77,14 @@ func (c Converter) String() string {
 }
 
 // WriteString returns the CSV as a string and an error if something goes wrong
-func (c Converter) WriteString() (string, error) {
+func (c *Converter) WriteString() (string, error) {
 	buffer := bytes.Buffer{}
 	err := c.Write(&buffer)
 	return buffer.String(), err
 }
 
 // WriteFile writes the csv.gzip to the filename specified, return an error if problem
-func (c Converter) WriteFile(csvGzipFileName string) error {
+func (c *Converter) WriteFile(csvGzipFileName string) error {
 	f, err := os.Create(csvGzipFileName)
 	if err != nil {
 		return err
@@ -96,13 +100,12 @@ func (c Converter) WriteFile(csvGzipFileName string) error {
 }
 
 // Write writes the csv.gzip to the Writer provided
-func (c Converter) Write(writer io.Writer) error {
+func (c *Converter) Write(writer io.Writer) error {
+	var zw io.WriteCloser
 	var countRows int64
+	var err error
 	writeRow := true
 	rows := c.rows
-
-	// Buffer size: string bytes x sqlBatchSize x No. of Columns
-	sqlRowBatch := make([][]string, 0, sqlBatchSize)
 
 	// Same size as sqlRowBatch
 	var csvBuffer bytes.Buffer
@@ -110,25 +113,38 @@ func (c Converter) Write(writer io.Writer) error {
 	// CSV writer to csvBuffer
 	csvWriter := csv.NewWriter(&csvBuffer)
 
-	// GZIP writer to underline file.csv.gzip
-	zw := gzip.NewWriter(writer)
-	defer zw.Close()
-
 	// Set delimiter
 	if c.Delimiter != '\x00' {
 		csvWriter.Comma = c.Delimiter
 	}
 
 	// Set headers
-	columnNames, err := c.setCSVHeaders()
+	columnNames, totalColumns, err := c.setCSVHeaders()
 	if err != nil {
-		return nil
+		return err
 	}
+
+	// GZIP writer to underline file.csv.gzip
+	if c.SingleThreaded {
+		zw, err = gzip.NewWriterLevel(writer, c.CompressionLevel)
+	} else {
+		zw, err = pgzip.NewWriterLevel(writer, c.CompressionLevel)
+	}
+	if err != nil {
+		return err
+	}
+	defer zw.Close()
+
+	// Buffer size: string bytes x sqlBatchSize x No. of Columns
+	sqlBatchSize := c.getSqlBatchSize(totalColumns)
+
+	sqlRowBatch := make([][]string, 0, sqlBatchSize)
+
 	sqlRowBatch = append(sqlRowBatch, columnNames)
 
 	// Buffers for each iteration
-	values := make([]interface{}, len(columnNames), len(columnNames))
-	valuePtrs := make([]interface{}, len(columnNames), len(columnNames))
+	values := make([]interface{}, totalColumns, totalColumns)
+	valuePtrs := make([]interface{}, totalColumns, totalColumns)
 
 	for i := range columnNames {
 		valuePtrs[i] = &values[i]
@@ -147,7 +163,7 @@ func (c Converter) Write(writer io.Writer) error {
 
 		if writeRow {
 			sqlRowBatch = append(sqlRowBatch, row)
-			if len(sqlRowBatch) >= sqlBatchSize {
+			if len(sqlRowBatch) >= c.SqlBatchSize {
 				countRows = countRows + int64(len(sqlRowBatch))
 				// Convert from sql to csv
 				// Writes to buffer
@@ -195,11 +211,11 @@ func (c Converter) Write(writer io.Writer) error {
 	return nil
 }
 
-func (c Converter) setCSVHeaders() ([]string, error) {
+func (c *Converter) setCSVHeaders() ([]string, int, error) {
 	var headers []string
 	columnNames, err := c.rows.Columns()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if c.WriteHeaders {
@@ -212,10 +228,10 @@ func (c Converter) setCSVHeaders() ([]string, error) {
 		}
 	}
 
-	return headers, nil
+	return headers, len(headers), nil
 }
 
-func (c Converter) stringify(values []interface{}) []string {
+func (c *Converter) stringify(values []interface{}) []string {
 	row := make([]string, len(values), len(values))
 	var value interface{}
 
@@ -244,13 +260,41 @@ func (c Converter) stringify(values []interface{}) []string {
 	return row
 }
 
+func (c *Converter) getSqlBatchSize(totalColumns int) int {
+	// Use sqlBatchSize set by user
+	if c.SqlBatchSize != 0 {
+		return c.SqlBatchSize
+	}
+	// Default to 4096
+	c.SqlBatchSize = 4096
+
+	// Use Default value when Single thread.
+	if c.SingleThreaded {
+		return c.SqlBatchSize
+	}
+
+	// If Multi-threaded, then block size should be atleast 1Mb = 1048576 bytes
+	// See https://github.com/klauspost/pgzip
+
+	// (String X SqlBatchSize X TotalColumns) > 1048576
+	// String = 16 bytes
+	// (SqlBatchSize X TotalColumns) > 65536
+
+	for (c.SqlBatchSize * totalColumns) > 65536 {
+		c.SqlBatchSize = c.SqlBatchSize + c.SqlBatchSize
+	}
+
+	return c.SqlBatchSize
+}
+
 // New will return a Converter which will write your CSV however you like
 // but will allow you to set a bunch of non-default behaivour like overriding
 // headers or injecting a pre-processing step into your conversion
 func New(rows *sql.Rows) *Converter {
 	return &Converter{
-		rows:         rows,
-		WriteHeaders: true,
-		Delimiter:    ',',
+		rows:             rows,
+		WriteHeaders:     true,
+		Delimiter:        ',',
+		CompressionLevel: flate.DefaultCompression,
 	}
 }
