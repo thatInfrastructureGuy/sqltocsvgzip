@@ -8,6 +8,13 @@ retrive sql rows ->  create csv file -> convert to gzip -> remove csv file
 
 With sqltocsvgzip, you can do in a single step.
 
+## Features
+* Multi-threaded Gzip compression
+* ~2Mb default buffer size.
+* Default 6 goroutines with 180K data/goroutine
+* Optional single threaded execution.
+
+
 ## Usage
 
 Importing the package
