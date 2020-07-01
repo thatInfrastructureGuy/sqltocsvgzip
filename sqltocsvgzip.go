@@ -300,7 +300,10 @@ func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, e
 
 	// Use pgzip if multi-threaded
 	zw, err := pgzip.NewWriterLevel(writer, c.CompressionLevel)
-	zw.SetConcurrency(c.GzipBatchPerGoroutine, c.GzipGoroutines)
+	if err != nil {
+		return zw, err
+	}
+	err = zw.SetConcurrency(c.GzipBatchPerGoroutine, c.GzipGoroutines)
 	return zw, err
 }
 
