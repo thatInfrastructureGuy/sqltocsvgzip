@@ -50,13 +50,15 @@ type CsvPreProcessorFunc func(row []string, columnNames []string) (outputRow boo
 // There are a few settings you can override if you want to do
 // some fancy stuff to your CSV.
 type Converter struct {
-	Headers          []string // Column headers to use (default is rows.Columns())
-	WriteHeaders     bool     // Flag to output headers in your CSV (default is true)
-	TimeFormat       string   // Format string for any time.Time values (default is time's default)
-	Delimiter        rune     // Delimiter to use in your CSV (default is comma)
-	SqlBatchSize     int
-	CompressionLevel int
-	SingleThreaded   bool
+	Headers               []string // Column headers to use (default is rows.Columns())
+	WriteHeaders          bool     // Flag to output headers in your CSV (default is true)
+	TimeFormat            string   // Format string for any time.Time values (default is time's default)
+	Delimiter             rune     // Delimiter to use in your CSV (default is comma)
+	SqlBatchSize          int
+	CompressionLevel      int
+	GzipGoroutines        int
+	GzipBatchPerGoroutine int
+	SingleThreaded        bool
 
 	rows            *sql.Rows
 	rowPreProcessor CsvPreProcessorFunc
@@ -298,7 +300,7 @@ func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, e
 
 	// Use pgzip if multi-threaded
 	zw, err := pgzip.NewWriterLevel(writer, c.CompressionLevel)
-	zw.SetConcurrency(180000, 6)
+	zw.SetConcurrency(c.GzipBatchPerGoroutine, c.GzipGoroutines)
 	return zw, err
 }
 
@@ -307,9 +309,11 @@ func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, e
 // headers or injecting a pre-processing step into your conversion
 func New(rows *sql.Rows) *Converter {
 	return &Converter{
-		rows:             rows,
-		WriteHeaders:     true,
-		Delimiter:        ',',
-		CompressionLevel: flate.DefaultCompression,
+		rows:                  rows,
+		WriteHeaders:          true,
+		Delimiter:             ',',
+		CompressionLevel:      flate.DefaultCompression,
+		GzipGoroutines:        6,
+		GzipBatchPerGoroutine: 180000,
 	}
 }
