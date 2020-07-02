@@ -12,9 +12,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/pgzip"
 )
@@ -59,6 +63,11 @@ type Converter struct {
 	GzipGoroutines        int
 	GzipBatchPerGoroutine int
 	SingleThreaded        bool
+	S3Bucket              string
+	S3Region              string
+	S3Acl                 string
+	S3Path                string
+	S3Upload              bool
 
 	rows            *sql.Rows
 	rowPreProcessor CsvPreProcessorFunc
@@ -305,6 +314,51 @@ func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, e
 	}
 	err = zw.SetConcurrency(c.GzipBatchPerGoroutine, c.GzipGoroutines)
 	return zw, err
+}
+
+// uploadTOS3 uploads gzipped file to S3 bucket.
+// Env Vars Required: S3_TARGET, AWS_REGION
+func (c *Converter) uploadToS3(filename string) error {
+	if len(c.S3Bucket) == 0 || len(c.S3Region) == 0 {
+		return fmt.Errorf("Both S3Bucket and S3Region variables needed to upload file to AWS S3")
+	}
+	if len(c.S3Acl) == 0 {
+		c.S3Acl = "bucket-owner-full-control"
+	}
+
+	// The session the S3 Uploader will use
+	sess := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String(c.S3Region),
+	}))
+
+	// Create an uploader with the session and default options
+	uploader := s3manager.NewUploader(sess)
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("failed to open file %q, %v", filename, err)
+	}
+
+	defer f.Close()
+
+	// Upload the file to S3.
+	result, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(c.S3Bucket),
+		Key:    aws.String(c.S3Path),
+		Body:   f,
+		ACL:    aws.String(c.S3Acl),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload file, %v", err)
+	}
+
+	uploadPath, err := url.PathUnescape(aws.StringValue(&result.Location))
+	if err != nil {
+		return err
+	}
+
+	log.Printf("File uploaded to, %s\n", uploadPath)
+	return nil
 }
 
 // New will return a Converter which will write your CSV however you like
