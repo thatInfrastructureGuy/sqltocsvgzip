@@ -1,7 +1,7 @@
-// sqltocsv is a package to make it dead easy to turn arbitrary database query
-// results (in the form of database/sql Rows) into CSV output.
+// sqltocsvgzip package converts database query results
+// (in the form of database/sql Rows) into CSV.GZIP output.
 //
-// Source and README at https://github.com/joho/sqltocsv
+// Source and README at https://github.com/thatInfrastructureGuy/sqltocsvgzip
 package sqltocsvgzip
 
 import (
@@ -15,8 +15,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/pgzip"
@@ -75,50 +73,50 @@ func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
 
 // WriteFile writes the csv.gzip to the filename specified, return an error if problem
 func (c *Converter) WriteFile(csvGzipFileName string) error {
+	var s3output *s3.CreateMultipartUploadOutput
+	var svc *s3.S3
+
 	f, err := os.Create(csvGzipFileName)
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	// Create MultiPart S3 Upload
 	if c.S3Upload {
+		svc, err = c.createS3Session()
+		if err != nil {
+			return err
+		}
 
+		s3output, err = c.createMultipartRequest(svc, f)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = c.Write(f)
 	if err != nil {
-		f.Close() // close, but only return/handle the write error
 		// Abort S3 Upload
+		if c.S3Upload {
+			awserr := abortMultipartUpload(svc, s3output)
+			if awserr != nil {
+				log.Println(awserr)
+			}
+		}
 		return err
 	}
+
 	// Complete S3 upload
-
-	return f.Close()
-}
-
-func (c *Converter) createMultipartRequest(file *os.File) (*s3.CreateMultipartUploadOutput, error) {
-	// Filetype ref: https://mimesniff.spec.whatwg.org/#matching-an-archive-type-pattern
-	fileType := "application/x-gzip"
-
-	input := &s3.CreateMultipartUploadInput{
-		Bucket:      aws.String(c.S3Bucket),
-		Key:         aws.String(c.S3Path),
-		ACL:         aws.String(c.S3Acl),
-		ContentType: aws.String(fileType),
+	if c.S3Upload {
+		completeResponse, err := completeMultipartUpload(svc, s3output)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Successfully uploaded file: %s\n", completeResponse.String())
 	}
 
-	svc, err := c.createS3Session()
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := svc.CreateMultipartUpload(input)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Created multipart upload request")
-	return resp, nil
+	return nil
 }
 
 // Write writes the csv.gzip to the Writer provided
@@ -335,25 +333,6 @@ func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, e
 	}
 	err = zw.SetConcurrency(c.GzipBatchPerGoroutine, c.GzipGoroutines)
 	return zw, err
-}
-
-// createS3Session authenticates with AWS and returns a S3 client
-func (c *Converter) createS3Session() (*s3.S3, error) {
-	if len(c.S3Bucket) == 0 || len(c.S3Region) == 0 {
-		return nil, fmt.Errorf("Both S3Bucket and S3Region variables needed to upload file to AWS S3")
-	}
-	if len(c.S3Acl) == 0 {
-		c.S3Acl = "bucket-owner-full-control"
-	}
-
-	// The session the S3 Uploader will use
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(c.S3Region),
-	}))
-
-	svc := s3.New(sess)
-
-	return svc, nil
 }
 
 // New will return a Converter which will write your CSV however you like
