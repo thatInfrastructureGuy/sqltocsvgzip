@@ -23,20 +23,14 @@ import (
 	"github.com/klauspost/pgzip"
 )
 
-// WriteFile will write a CSV file to the file name specified (with headers)
+// WriteFile will write a CSV.GZIP file to the file name specified (with headers)
 // based on whatever is in the sql.Rows you pass in. It calls WriteCsvToWriter under
 // the hood.
 func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
 	return New(rows).WriteFile(csvGzipFileName)
 }
 
-// WriteString will return a string of the CSV. Don't use this unless you've
-// got a small data set or a lot of memory
-func WriteString(rows *sql.Rows) (string, error) {
-	return New(rows).WriteString()
-}
-
-// Write will write a CSV file to the writer passed in (with headers)
+// Write will write a CSV.GZIP file to the writer passed in (with headers)
 // based on whatever is in the sql.Rows you pass in.
 func Write(writer io.Writer, rows *sql.Rows) error {
 	return New(rows).Write(writer)
@@ -68,6 +62,8 @@ type Converter struct {
 	S3Acl                 string
 	S3Path                string
 	S3Upload              bool
+	S3UploadThreads       int
+	S3UploadMaxPartSize   int
 
 	rows            *sql.Rows
 	rowPreProcessor CsvPreProcessorFunc
@@ -76,22 +72,6 @@ type Converter struct {
 // SetRowPreProcessor lets you specify a CsvPreprocessorFunc for this conversion
 func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
 	c.rowPreProcessor = processor
-}
-
-// String returns the CSV as a string in an fmt package friendly way
-func (c *Converter) String() string {
-	csv, err := c.WriteString()
-	if err != nil {
-		return ""
-	}
-	return csv
-}
-
-// WriteString returns the CSV as a string and an error if something goes wrong
-func (c *Converter) WriteString() (string, error) {
-	buffer := bytes.Buffer{}
-	err := c.Write(&buffer)
-	return buffer.String(), err
 }
 
 // WriteFile writes the csv.gzip to the filename specified, return an error if problem
@@ -153,6 +133,13 @@ func (c *Converter) Write(writer io.Writer) error {
 	values := make([]interface{}, totalColumns, totalColumns)
 	valuePtrs := make([]interface{}, totalColumns, totalColumns)
 
+	// Create MultiPart S3 Upload
+	if c.S3Upload {
+		// should I defer complete
+		// if err +> Abort S3
+		// else complete
+	}
+
 	for i := range columnNames {
 		valuePtrs[i] = &values[i]
 	}
@@ -190,6 +177,12 @@ func (c *Converter) Write(writer io.Writer) error {
 				sqlRowBatch = sqlRowBatch[:0]
 				csvBuffer.Reset()
 			}
+
+			// Upload partially created file to S3
+			// If UploadtoS3 is set to true &&
+			// If size of the gzip file exceeds maxFileStorage
+			if c.S3Upload && fileSize >= c.S3UploadMaxPartSize {
+			}
 		}
 	}
 	err = rows.Err()
@@ -211,6 +204,10 @@ func (c *Converter) Write(writer io.Writer) error {
 	//Wipe the buffer
 	sqlRowBatch = nil
 	csvBuffer.Reset()
+
+	// Upload last part of the file to S3
+	if c.S3Upload {
+	}
 
 	// Log the total number of rows processed.
 	log.Println("Total number of sql rows processed: ", countRows)
