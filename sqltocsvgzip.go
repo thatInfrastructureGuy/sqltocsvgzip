@@ -12,13 +12,12 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/url"
 	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/pgzip"
 )
@@ -81,13 +80,45 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		return err
 	}
 
+	// Create MultiPart S3 Upload
+	if c.S3Upload {
+
+	}
+
 	err = c.Write(f)
 	if err != nil {
 		f.Close() // close, but only return/handle the write error
+		// Abort S3 Upload
 		return err
 	}
+	// Complete S3 upload
 
 	return f.Close()
+}
+
+func (c *Converter) createMultipartRequest(file *os.File) (*s3.CreateMultipartUploadOutput, error) {
+	// Filetype ref: https://mimesniff.spec.whatwg.org/#matching-an-archive-type-pattern
+	fileType := "application/x-gzip"
+
+	input := &s3.CreateMultipartUploadInput{
+		Bucket:      aws.String(c.S3Bucket),
+		Key:         aws.String(c.S3Path),
+		ACL:         aws.String(c.S3Acl),
+		ContentType: aws.String(fileType),
+	}
+
+	svc, err := c.createS3Session()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := svc.CreateMultipartUpload(input)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("Created multipart upload request")
+	return resp, nil
 }
 
 // Write writes the csv.gzip to the Writer provided
@@ -132,13 +163,6 @@ func (c *Converter) Write(writer io.Writer) error {
 	// Buffers for each iteration
 	values := make([]interface{}, totalColumns, totalColumns)
 	valuePtrs := make([]interface{}, totalColumns, totalColumns)
-
-	// Create MultiPart S3 Upload
-	if c.S3Upload {
-		// should I defer complete
-		// if err +> Abort S3
-		// else complete
-	}
 
 	for i := range columnNames {
 		valuePtrs[i] = &values[i]
@@ -313,11 +337,10 @@ func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, e
 	return zw, err
 }
 
-// uploadTOS3 uploads gzipped file to S3 bucket.
-// Env Vars Required: S3_TARGET, AWS_REGION
-func (c *Converter) uploadToS3(filename string) error {
+// createS3Session authenticates with AWS and returns a S3 client
+func (c *Converter) createS3Session() (*s3.S3, error) {
 	if len(c.S3Bucket) == 0 || len(c.S3Region) == 0 {
-		return fmt.Errorf("Both S3Bucket and S3Region variables needed to upload file to AWS S3")
+		return nil, fmt.Errorf("Both S3Bucket and S3Region variables needed to upload file to AWS S3")
 	}
 	if len(c.S3Acl) == 0 {
 		c.S3Acl = "bucket-owner-full-control"
@@ -328,34 +351,9 @@ func (c *Converter) uploadToS3(filename string) error {
 		Region: aws.String(c.S3Region),
 	}))
 
-	// Create an uploader with the session and default options
-	uploader := s3manager.NewUploader(sess)
+	svc := s3.New(sess)
 
-	f, err := os.Open(filename)
-	if err != nil {
-		return fmt.Errorf("failed to open file %q, %v", filename, err)
-	}
-
-	defer f.Close()
-
-	// Upload the file to S3.
-	result, err := uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(c.S3Bucket),
-		Key:    aws.String(c.S3Path),
-		Body:   f,
-		ACL:    aws.String(c.S3Acl),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to upload file, %v", err)
-	}
-
-	uploadPath, err := url.PathUnescape(aws.StringValue(&result.Location))
-	if err != nil {
-		return err
-	}
-
-	log.Printf("File uploaded to, %s\n", uploadPath)
-	return nil
+	return svc, nil
 }
 
 // New will return a Converter which will write your CSV however you like
