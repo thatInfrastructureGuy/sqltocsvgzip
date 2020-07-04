@@ -79,19 +79,13 @@ func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput
 }
 
 func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return err
-	}
-
 	tryNum := 1
 	partInput := &s3.UploadPartInput{
-		Body:          file,
-		Bucket:        c.S3Resp.Bucket,
-		Key:           c.S3Resp.Key,
-		PartNumber:    aws.Int64(partNumber),
-		UploadId:      c.S3Resp.UploadId,
-		ContentLength: aws.Int64(fileInfo.Size()),
+		Body:       file,
+		Bucket:     c.S3Resp.Bucket,
+		Key:        c.S3Resp.Key,
+		PartNumber: aws.Int64(partNumber),
+		UploadId:   c.S3Resp.UploadId,
 	}
 
 	for tryNum <= maxRetries {
