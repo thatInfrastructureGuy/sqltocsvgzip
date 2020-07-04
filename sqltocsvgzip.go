@@ -54,13 +54,16 @@ type Converter struct {
 	GzipGoroutines        int
 	GzipBatchPerGoroutine int
 	SingleThreaded        bool
+	S3Svc                 *s3.S3
+	S3Resp                *s3.CreateMultipartUploadOutput
 	S3Bucket              string
 	S3Region              string
 	S3Acl                 string
 	S3Path                string
 	S3Upload              bool
 	S3UploadThreads       int
-	S3UploadMaxPartSize   int
+	S3UploadMaxPartSize   int64
+	S3CompletedParts      []*s3.CompletedPart
 
 	rows            *sql.Rows
 	rowPreProcessor CsvPreProcessorFunc
@@ -73,9 +76,6 @@ func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
 
 // WriteFile writes the csv.gzip to the filename specified, return an error if problem
 func (c *Converter) WriteFile(csvGzipFileName string) error {
-	var s3output *s3.CreateMultipartUploadOutput
-	var svc *s3.S3
-
 	f, err := os.Create(csvGzipFileName)
 	if err != nil {
 		return err
@@ -84,12 +84,12 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 	// Create MultiPart S3 Upload
 	if c.S3Upload {
-		svc, err = c.createS3Session()
+		err = c.createS3Session()
 		if err != nil {
 			return err
 		}
 
-		s3output, err = c.createMultipartRequest(svc, f)
+		err = c.createMultipartRequest(f)
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 	if err != nil {
 		// Abort S3 Upload
 		if c.S3Upload {
-			awserr := abortMultipartUpload(svc, s3output)
+			awserr := c.abortMultipartUpload()
 			if awserr != nil {
 				log.Println(awserr)
 			}
@@ -109,7 +109,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 	// Complete S3 upload
 	if c.S3Upload {
-		completeResponse, err := completeMultipartUpload(svc, s3output)
+		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(writer io.Writer) error {
-	var countRows int64
+	var countRows, uploadPartNumber int64
 	writeRow := true
 	rows := c.rows
 
@@ -166,6 +166,17 @@ func (c *Converter) Write(writer io.Writer) error {
 		valuePtrs[i] = &values[i]
 	}
 
+	// Check file size.
+	var fileInfo os.FileInfo
+	f, isFile := writer.(*os.File)
+	if isFile {
+		fileInfo, err = f.Stat()
+		if err != nil {
+			return err
+		}
+	}
+
+	// Iterate over sql rows
 	for rows.Next() {
 		if err = rows.Scan(valuePtrs...); err != nil {
 			return err
@@ -203,7 +214,13 @@ func (c *Converter) Write(writer io.Writer) error {
 			// Upload partially created file to S3
 			// If UploadtoS3 is set to true &&
 			// If size of the gzip file exceeds maxFileStorage
-			if c.S3Upload && fileSize >= c.S3UploadMaxPartSize {
+			if c.S3Upload && isFile && fileInfo.Size() >= c.S3UploadMaxPartSize && uploadPartNumber < 10000 {
+				// Increament PartNumber
+				uploadPartNumber++
+				err = c.UploadPartToS3(f, uploadPartNumber)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -228,11 +245,37 @@ func (c *Converter) Write(writer io.Writer) error {
 	csvBuffer.Reset()
 
 	// Upload last part of the file to S3
-	if c.S3Upload {
+	if c.S3Upload && isFile {
+		// Increament PartNumber
+		uploadPartNumber++
+		err = c.UploadPartToS3(f, uploadPartNumber)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Log the total number of rows processed.
 	log.Println("Total number of sql rows processed: ", countRows)
+
+	return nil
+}
+
+func (c *Converter) UploadPartToS3(f *os.File, uploadPartNumber int64) (err error) {
+	// Upload part
+	err = c.uploadPart(f, uploadPartNumber)
+	if err != nil {
+		return err
+	}
+	// Reset file
+	err = f.Truncate(0)
+	if err != nil {
+		return err
+	}
+	// Move the reader
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
