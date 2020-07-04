@@ -1,9 +1,7 @@
 package sqltocsvgzip
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -87,19 +85,13 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 	}
 	fileSize := fileInfo.Size()
 
-	buf, err := ioutil.ReadAll(file)
-	if err != nil {
-		return err
-	}
-
 	log.Println("-----------------")
-	log.Println(len(buf))
 	log.Println(fileSize)
 	log.Println("-----------------")
 
 	tryNum := 1
 	partInput := &s3.UploadPartInput{
-		Body:          bytes.NewReader(buf),
+		Body:          file,
 		Bucket:        c.S3Resp.Bucket,
 		Key:           c.S3Resp.Key,
 		PartNumber:    aws.Int64(partNumber),
