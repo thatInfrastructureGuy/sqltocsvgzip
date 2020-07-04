@@ -83,11 +83,6 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 	if err != nil {
 		return err
 	}
-	fileSize := fileInfo.Size()
-
-	log.Println("-----------------")
-	log.Println(fileSize)
-	log.Println("-----------------")
 
 	tryNum := 1
 	partInput := &s3.UploadPartInput{
@@ -96,12 +91,13 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 		Key:           c.S3Resp.Key,
 		PartNumber:    aws.Int64(partNumber),
 		UploadId:      c.S3Resp.UploadId,
-		ContentLength: aws.Int64(fileSize),
+		ContentLength: aws.Int64(fileInfo.Size()),
 	}
 
 	for tryNum <= maxRetries {
 		uploadResult, err := c.S3Svc.UploadPart(partInput)
 		if err != nil {
+			log.Println(err)
 			if tryNum == maxRetries {
 				if aerr, ok := err.(awserr.Error); ok {
 					return aerr
