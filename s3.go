@@ -33,7 +33,7 @@ func (c *Converter) createMultipartRequest(file *os.File) (err error) {
 		return err
 	}
 
-	log.Println("Created multipart upload request")
+	log.Println("Created multipart upload request.")
 	return nil
 }
 
@@ -57,7 +57,7 @@ func (c *Converter) createS3Session() error {
 }
 
 func (c *Converter) abortMultipartUpload() error {
-	log.Println("Aborting multipart upload for UploadId#" + *c.S3Resp.UploadId)
+	log.Println("Aborting multipart upload for UploadId: " + *c.S3Resp.UploadId)
 	abortInput := &s3.AbortMultipartUploadInput{
 		Bucket:   c.S3Resp.Bucket,
 		Key:      c.S3Resp.Key,
@@ -80,17 +80,21 @@ func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput
 }
 
 func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
-	var buf []byte
-	numberOfBytes, err := file.Read(buf)
-
 	fileInfo, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	fileSize := fileInfo.Size()
+
+	buf := make([]byte, 0, fileSize)
+	numberOfBytes, err := file.Read(buf)
 	if err != nil {
 		return err
 	}
 
 	log.Println("-----------------")
 	log.Println(numberOfBytes)
-	log.Println(fileInfo.Size())
+	log.Println(fileSize)
 	log.Println("-----------------")
 
 	tryNum := 1
@@ -100,7 +104,7 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 		Key:           c.S3Resp.Key,
 		PartNumber:    aws.Int64(partNumber),
 		UploadId:      c.S3Resp.UploadId,
-		ContentLength: aws.Int64(fileInfo.Size()),
+		ContentLength: aws.Int64(fileSize),
 	}
 
 	for tryNum <= maxRetries {
@@ -112,10 +116,10 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 				}
 				return err
 			}
-			log.Printf("Retrying to upload part #%v\n", partNumber)
+			log.Println("Retrying to upload part #", partNumber)
 			tryNum++
 		} else {
-			log.Printf("Uploaded part #%v\n", partNumber)
+			log.Println("Uploaded part #", partNumber)
 			c.S3CompletedParts = append(c.S3CompletedParts, &s3.CompletedPart{
 				ETag:       uploadResult.ETag,
 				PartNumber: aws.Int64(partNumber),

@@ -95,7 +95,6 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(writer io.Writer) error {
-	log.Println(c)
 	var countRows, uploadPartNumber int64
 	writeRow := true
 	rows := c.rows
@@ -189,9 +188,6 @@ func (c *Converter) Write(writer io.Writer) error {
 					return err
 				}
 				fileSize := fileInfo.Size()
-
-				log.Println("PRE: The size of upload part is ", fileSize)
-				log.Println("The max upload part size is ", c.S3UploadMaxPartSize)
 
 				if fileSize >= c.S3UploadMaxPartSize && uploadPartNumber < 10000 {
 					// Increament PartNumber
