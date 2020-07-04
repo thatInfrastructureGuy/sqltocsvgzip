@@ -78,7 +78,10 @@ func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput
 	return c.S3Svc.CompleteMultipartUpload(completeInput)
 }
 
-func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
+func (c *Converter) uploadPart(file *os.File, partNumber int64, lastPart bool) (err error) {
+	if lastPart {
+		partNumber = 10000
+	}
 	tryNum := 1
 	partInput := &s3.UploadPartInput{
 		Body:       file,

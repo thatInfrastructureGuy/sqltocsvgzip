@@ -182,7 +182,7 @@ func (c *Converter) Write(f *os.File) error {
 				if fileSize >= c.S3UploadMaxPartSize && uploadPartNumber < 10000 {
 					// Increament PartNumber
 					uploadPartNumber++
-					err = c.UploadPartToS3(f, uploadPartNumber)
+					err = c.UploadPartToS3(f, uploadPartNumber, false)
 					if err != nil {
 						return err
 					}
@@ -221,7 +221,7 @@ func (c *Converter) Write(f *os.File) error {
 	if c.S3Upload {
 		// Increament PartNumber
 		uploadPartNumber++
-		err = c.UploadPartToS3(f, uploadPartNumber)
+		err = c.UploadPartToS3(f, uploadPartNumber, true)
 		if err != nil {
 			return err
 		}
@@ -233,10 +233,10 @@ func (c *Converter) Write(f *os.File) error {
 	return nil
 }
 
-func (c *Converter) UploadPartToS3(f *os.File, uploadPartNumber int64) (err error) {
+func (c *Converter) UploadPartToS3(f *os.File, uploadPartNumber int64, lastPart bool) (err error) {
 	log.Println("Uploading Part: ", uploadPartNumber)
 	// Upload part
-	err = c.uploadPart(f, uploadPartNumber)
+	err = c.uploadPart(f, uploadPartNumber, lastPart)
 	if err != nil {
 		return err
 	}
