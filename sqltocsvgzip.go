@@ -29,12 +29,6 @@ func UploadToS3(csvGzipFileName string, rows *sql.Rows) error {
 	return DefaultConfig(rows).WriteFile(csvGzipFileName)
 }
 
-// Write will write a CSV.GZIP file to the writer passed in (with headers)
-// based on whatever is in the sql.Rows you pass in.
-func Write(writer io.Writer, rows *sql.Rows) error {
-	return New(rows).Write(writer)
-}
-
 // CsvPreprocessorFunc is a function type for preprocessing your CSV.
 // It takes the columns after they've been munged into strings but
 // before they've been passed into the CSV writer.
@@ -94,7 +88,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 }
 
 // Write writes the csv.gzip to the Writer provided
-func (c *Converter) Write(writer io.Writer) error {
+func (c *Converter) Write(f *os.File) error {
 	var countRows, uploadPartNumber int64
 	writeRow := true
 	rows := c.rows
@@ -117,7 +111,7 @@ func (c *Converter) Write(writer io.Writer) error {
 	}
 
 	// GZIP writer to underline file.csv.gzip
-	zw, err := c.selectCompressionMethod(writer)
+	zw, err := c.selectCompressionMethod(f)
 	if err != nil {
 		return err
 	}
@@ -139,9 +133,6 @@ func (c *Converter) Write(writer io.Writer) error {
 	for i := range columnNames {
 		valuePtrs[i] = &values[i]
 	}
-
-	// Check file size.
-	f, isFile := writer.(*os.File)
 
 	// Iterate over sql rows
 	for rows.Next() {
@@ -181,7 +172,7 @@ func (c *Converter) Write(writer io.Writer) error {
 			// Upload partially created file to S3
 			// If UploadtoS3 is set to true &&
 			// If size of the gzip file exceeds maxFileStorage
-			if c.S3Upload && isFile {
+			if c.S3Upload {
 				fileInfo, err := f.Stat()
 				if err != nil {
 					return err
@@ -227,7 +218,7 @@ func (c *Converter) Write(writer io.Writer) error {
 	csvBuffer.Reset()
 
 	// Upload last part of the file to S3
-	if c.S3Upload && isFile {
+	if c.S3Upload {
 		// Increament PartNumber
 		uploadPartNumber++
 		err = c.UploadPartToS3(f, uploadPartNumber)
