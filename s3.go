@@ -2,6 +2,7 @@ package sqltocsvgzip
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -31,7 +32,7 @@ func (c *Converter) createMultipartRequest(file *os.File) (err error) {
 		return err
 	}
 
-	fmt.Println("Created multipart upload request")
+	log.Println("Created multipart upload request")
 	return nil
 }
 
@@ -55,7 +56,7 @@ func (c *Converter) createS3Session() error {
 }
 
 func (c *Converter) abortMultipartUpload() error {
-	fmt.Println("Aborting multipart upload for UploadId#" + *c.S3Resp.UploadId)
+	log.Println("Aborting multipart upload for UploadId#" + *c.S3Resp.UploadId)
 	abortInput := &s3.AbortMultipartUploadInput{
 		Bucket:   c.S3Resp.Bucket,
 		Key:      c.S3Resp.Key,
@@ -101,10 +102,10 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) error {
 				}
 				return err
 			}
-			fmt.Printf("Retrying to upload part #%v\n", partNumber)
+			log.Printf("Retrying to upload part #%v\n", partNumber)
 			tryNum++
 		} else {
-			fmt.Printf("Uploaded part #%v\n", partNumber)
+			log.Printf("Uploaded part #%v\n", partNumber)
 			c.S3CompletedParts = append(c.S3CompletedParts, &s3.CompletedPart{
 				ETag:       uploadResult.ETag,
 				PartNumber: aws.Int64(partNumber),

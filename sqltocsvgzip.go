@@ -87,7 +87,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Successfully uploaded file: %s\n", completeResponse.String())
+		log.Printf("Successfully uploaded file: %s\n", completeResponse.String())
 	}
 
 	return nil
@@ -189,12 +189,15 @@ func (c *Converter) Write(writer io.Writer) error {
 			// If UploadtoS3 is set to true &&
 			// If size of the gzip file exceeds maxFileStorage
 			if c.S3Upload && isFile && fileInfo.Size() >= c.S3UploadMaxPartSize && uploadPartNumber < 10000 {
+				log.Println("PRE: The size of upload part is %v", fileInfo.Size())
+				log.Println("The max upload part size is %v", c.S3UploadMaxPartSize)
 				// Increament PartNumber
 				uploadPartNumber++
 				err = c.UploadPartToS3(f, uploadPartNumber)
 				if err != nil {
 					return err
 				}
+				log.Println("POST: The size of upload part is %v", fileInfo.Size())
 			}
 		}
 	}
@@ -235,11 +238,13 @@ func (c *Converter) Write(writer io.Writer) error {
 }
 
 func (c *Converter) UploadPartToS3(f *os.File, uploadPartNumber int64) (err error) {
+	log.Println("Uploading Part: %v", uploadPartNumber)
 	// Upload part
 	err = c.uploadPart(f, uploadPartNumber)
 	if err != nil {
 		return err
 	}
+	log.Println("Truncating File")
 	// Reset file
 	err = f.Truncate(0)
 	if err != nil {
