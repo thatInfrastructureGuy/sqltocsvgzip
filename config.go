@@ -3,6 +3,7 @@ package sqltocsvgzip
 import (
 	"compress/flate"
 	"database/sql"
+	"os"
 
 	"github.com/aws/aws-sdk-go/service/s3"
 )
@@ -49,7 +50,21 @@ func New(rows *sql.Rows) *Converter {
 	}
 }
 
-func DefaultS3Config(rows *sql.Rows) *Converter {
+// DefaultConfig sets the following variables.
+//
+//		WriteHeaders:          true,
+//		Delimiter:             ',',
+//		CompressionLevel:      flate.DefaultCompression,
+//		GzipGoroutines:        6,
+//		GzipBatchPerGoroutine: 180000,
+//		S3Upload:              true,
+//		S3UploadMaxPartSize:   50 * 1024 * 1024,
+//		S3Bucket:              os.Getenv("S3_BUCKET"),
+//		S3Path:                os.Getenv("S3_PATH"),
+//		S3Region:              os.Getenv("S3_REGION"),
+//		S3Acl:                 os.Getenv("S3_ACL"),  // If empty, defaults to bucket-owner-full-control
+//
+func DefaultConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
 		WriteHeaders:          true,
@@ -59,5 +74,9 @@ func DefaultS3Config(rows *sql.Rows) *Converter {
 		GzipBatchPerGoroutine: 180000,
 		S3Upload:              true,
 		S3UploadMaxPartSize:   50 * 1024 * 1024,
+		S3Bucket:              os.Getenv("S3_BUCKET"),
+		S3Path:                os.Getenv("S3_PATH"),
+		S3Region:              os.Getenv("S3_REGION"),
+		S3Acl:                 os.Getenv("S3_ACL"),
 	}
 }

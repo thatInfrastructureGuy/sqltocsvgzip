@@ -26,7 +26,7 @@ func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
 }
 
 func UploadToS3(csvGzipFileName string, rows *sql.Rows) error {
-	return DefaultS3Config(rows).WriteFile(csvGzipFileName)
+	return DefaultConfig(rows).WriteFile(csvGzipFileName)
 }
 
 // Write will write a CSV.GZIP file to the writer passed in (with headers)
