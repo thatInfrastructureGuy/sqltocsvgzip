@@ -1,6 +1,7 @@
 package sqltocsvgzip
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -78,14 +79,23 @@ func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput
 	return c.S3Svc.CompleteMultipartUpload(completeInput)
 }
 
-func (c *Converter) uploadPart(file *os.File, partNumber int64) error {
+func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
+	var buf []byte
+	numberOfBytes, err := file.Read(buf)
+
 	fileInfo, err := file.Stat()
 	if err != nil {
 		return err
 	}
+
+	log.Println("-----------------")
+	log.Println(numberOfBytes)
+	log.Println(fileInfo.Size())
+	log.Println("-----------------")
+
 	tryNum := 1
 	partInput := &s3.UploadPartInput{
-		Body:          file,
+		Body:          bytes.NewReader(buf),
 		Bucket:        c.S3Resp.Bucket,
 		Key:           c.S3Resp.Key,
 		PartNumber:    aws.Int64(partNumber),

@@ -144,12 +144,6 @@ func (c *Converter) Write(writer io.Writer) error {
 	// Check file size.
 	var fileInfo os.FileInfo
 	f, isFile := writer.(*os.File)
-	if isFile {
-		fileInfo, err = f.Stat()
-		if err != nil {
-			return err
-		}
-	}
 
 	// Iterate over sql rows
 	for rows.Next() {
@@ -189,16 +183,31 @@ func (c *Converter) Write(writer io.Writer) error {
 			// Upload partially created file to S3
 			// If UploadtoS3 is set to true &&
 			// If size of the gzip file exceeds maxFileStorage
-			log.Println("PRE: The size of upload part is ", fileInfo.Size())
-			log.Println("The max upload part size is ", c.S3UploadMaxPartSize)
-			if c.S3Upload && isFile && fileInfo.Size() >= c.S3UploadMaxPartSize && uploadPartNumber < 10000 {
-				// Increament PartNumber
-				uploadPartNumber++
-				err = c.UploadPartToS3(f, uploadPartNumber)
+			if c.S3Upload && isFile {
+				fileInfo, err = f.Stat()
 				if err != nil {
 					return err
 				}
-				log.Println("POST: The size of upload part is ", fileInfo.Size())
+				fileSize := fileInfo.Size()
+
+				log.Println("PRE: The size of upload part is ", fileSize)
+				log.Println("The max upload part size is ", c.S3UploadMaxPartSize)
+
+				if fileSize >= c.S3UploadMaxPartSize && uploadPartNumber < 10000 {
+					// Increament PartNumber
+					uploadPartNumber++
+					err = c.UploadPartToS3(f, uploadPartNumber)
+					if err != nil {
+						return err
+					}
+
+					fileInfo, err = f.Stat()
+					if err != nil {
+						return err
+					}
+					fileSize := fileInfo.Size()
+					log.Println("POST: The size of upload part is ", fileSize)
+				}
 			}
 		}
 	}
