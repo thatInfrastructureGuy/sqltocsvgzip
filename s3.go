@@ -3,6 +3,7 @@ package sqltocsvgzip
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -86,14 +87,13 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 	}
 	fileSize := fileInfo.Size()
 
-	buf := make([]byte, fileSize, fileSize)
-	numberOfBytes, err := file.Read(buf[:fileSize-1])
+	buf, err := ioutil.ReadAll(file)
 	if err != nil {
 		return err
 	}
 
 	log.Println("-----------------")
-	log.Println(numberOfBytes)
+	log.Println(len(buf))
 	log.Println(fileSize)
 	log.Println("-----------------")
 
