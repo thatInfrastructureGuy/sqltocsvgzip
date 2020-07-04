@@ -6,7 +6,6 @@ package sqltocsvgzip
 
 import (
 	"bytes"
-	"compress/flate"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
@@ -15,7 +14,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/pgzip"
 )
@@ -25,6 +23,10 @@ import (
 // the hood.
 func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
 	return New(rows).WriteFile(csvGzipFileName)
+}
+
+func UploadToS3(csvGzipFileName string, rows *sql.Rows) error {
+	return DefaultS3Config(rows).WriteFile(csvGzipFileName)
 }
 
 // Write will write a CSV.GZIP file to the writer passed in (with headers)
@@ -40,34 +42,6 @@ func Write(writer io.Writer, rows *sql.Rows) error {
 // Return an outputRow of false if you want the row skipped otherwise
 // return the processed Row slice as you want it written to the CSV.
 type CsvPreProcessorFunc func(row []string, columnNames []string) (outputRow bool, processedRow []string)
-
-// Converter does the actual work of converting the rows to CSV.
-// There are a few settings you can override if you want to do
-// some fancy stuff to your CSV.
-type Converter struct {
-	Headers               []string // Column headers to use (default is rows.Columns())
-	WriteHeaders          bool     // Flag to output headers in your CSV (default is true)
-	TimeFormat            string   // Format string for any time.Time values (default is time's default)
-	Delimiter             rune     // Delimiter to use in your CSV (default is comma)
-	SqlBatchSize          int
-	CompressionLevel      int
-	GzipGoroutines        int
-	GzipBatchPerGoroutine int
-	SingleThreaded        bool
-	S3Svc                 *s3.S3
-	S3Resp                *s3.CreateMultipartUploadOutput
-	S3Bucket              string
-	S3Region              string
-	S3Acl                 string
-	S3Path                string
-	S3Upload              bool
-	S3UploadThreads       int
-	S3UploadMaxPartSize   int64
-	S3CompletedParts      []*s3.CompletedPart
-
-	rows            *sql.Rows
-	rowPreProcessor CsvPreProcessorFunc
-}
 
 // SetRowPreProcessor lets you specify a CsvPreprocessorFunc for this conversion
 func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
@@ -376,18 +350,4 @@ func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, e
 	}
 	err = zw.SetConcurrency(c.GzipBatchPerGoroutine, c.GzipGoroutines)
 	return zw, err
-}
-
-// New will return a Converter which will write your CSV however you like
-// but will allow you to set a bunch of non-default behaivour like overriding
-// headers or injecting a pre-processing step into your conversion
-func New(rows *sql.Rows) *Converter {
-	return &Converter{
-		rows:                  rows,
-		WriteHeaders:          true,
-		Delimiter:             ',',
-		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        6,
-		GzipBatchPerGoroutine: 180000,
-	}
 }
