@@ -86,7 +86,7 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 	}
 	fileSize := fileInfo.Size()
 
-	buf := make([]byte, 0, fileSize)
+	buf := make([]byte, fileSize, fileSize)
 	numberOfBytes, err := file.Read(buf)
 	if err != nil {
 		return err

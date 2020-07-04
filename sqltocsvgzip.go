@@ -141,7 +141,6 @@ func (c *Converter) Write(writer io.Writer) error {
 	}
 
 	// Check file size.
-	var fileInfo os.FileInfo
 	f, isFile := writer.(*os.File)
 
 	// Iterate over sql rows
@@ -183,7 +182,7 @@ func (c *Converter) Write(writer io.Writer) error {
 			// If UploadtoS3 is set to true &&
 			// If size of the gzip file exceeds maxFileStorage
 			if c.S3Upload && isFile {
-				fileInfo, err = f.Stat()
+				fileInfo, err := f.Stat()
 				if err != nil {
 					return err
 				}
