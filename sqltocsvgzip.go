@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/klauspost/compress/gzip"
@@ -79,6 +80,10 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 	if c.S3Upload {
 		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
+			awserr := c.abortMultipartUpload()
+			if awserr != nil {
+				log.Println(awserr)
+			}
 			return err
 		}
 		log.Printf("Successfully uploaded file: %s\n", completeResponse.String())
@@ -89,7 +94,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(f *os.File) error {
-	var countRows, uploadPartNumber int64
+	var countRows, partNumber int64
 	writeRow := true
 	rows := c.rows
 
@@ -179,20 +184,14 @@ func (c *Converter) Write(f *os.File) error {
 				}
 				fileSize := fileInfo.Size()
 
-				if fileSize >= c.S3UploadMaxPartSize && uploadPartNumber < 10000 {
+				if fileSize >= c.S3UploadMaxPartSize && partNumber < 10000 {
 					// Increament PartNumber
-					uploadPartNumber++
-					err = c.UploadPartToS3(f, uploadPartNumber, false)
+					partNumber++
+					// Add to Queue
+					partNumber, err = c.AddToQueue(f, partNumber, false)
 					if err != nil {
 						return err
 					}
-
-					fileInfo, err = f.Stat()
-					if err != nil {
-						return err
-					}
-					fileSize := fileInfo.Size()
-					log.Println("POST: The size of upload part is ", fileSize)
 				}
 			}
 		}
@@ -220,8 +219,22 @@ func (c *Converter) Write(f *os.File) error {
 	// Upload last part of the file to S3
 	if c.S3Upload {
 		// Increament PartNumber
-		uploadPartNumber++
-		err = c.UploadPartToS3(f, uploadPartNumber, true)
+		partNumber++
+		fileInfo, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		fileSize := fileInfo.Size()
+		if fileSize < minFileSize && partNumber == 1 {
+			// Upload one time
+			err = c.UploadObjectToS3(f)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			// Add to Queue for multipart upload
+			partNumber, err = c.AddToQueue(f, partNumber, true)
+		}
 		if err != nil {
 			return err
 		}
@@ -233,26 +246,103 @@ func (c *Converter) Write(f *os.File) error {
 	return nil
 }
 
-func (c *Converter) UploadPartToS3(f *os.File, uploadPartNumber int64, lastPart bool) (err error) {
-	log.Println("Uploading Part: ", uploadPartNumber)
-	// Upload part
-	err = c.uploadPart(f, uploadPartNumber, lastPart)
+func (c *Converter) UploadObjectToS3(f *os.File) error {
+	return fmt.Errorf("Method UploadObjectToS3 not implemented")
+}
+
+func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool) (newPartNumber int64, err error) {
+	partFile := strconv.FormatInt(partNumber, 10)
+	prevFile := strconv.FormatInt(partNumber-1, 10)
+	newPartNumber = partNumber
+
+	fcurr, err := os.Create(partFile)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	log.Println("Truncating File")
+	defer fcurr.Close()
+
+	bytesWritten, err := io.Copy(fcurr, f)
+	if err != nil {
+		return 0, err
+	}
+
+	if bytesWritten < minFileSize {
+		// Write the bytes to previous partFile
+		fprev, err := os.OpenFile(prevFile, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660)
+		if err != nil {
+			return 0, err
+		}
+		defer fprev.Close()
+
+		bytesWritten, err = io.Copy(fprev, f)
+		if err != nil {
+			return 0, err
+		}
+
+		// Delete the current partFile
+		fcurr.Close()
+		err = os.Remove(partFile)
+		if err != nil {
+			return 0, err
+		}
+
+		newPartNumber = partNumber - 1
+
+		if uploadLastPart {
+			uploadLastPart = false
+		}
+	}
+
+	// send prev to channel
+	c.S3Uploadable <- partNumber - 1
+
+	if uploadLastPart {
+		c.S3Uploadable <- partNumber
+		c.quit <- true
+	}
+
 	// Reset file
 	err = f.Truncate(0)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// Move the reader
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return newPartNumber, nil
+}
+
+func (c *Converter) UploadAndDeletePart() {
+	for {
+		select {
+		case partNumber := <-c.S3Uploadable:
+			fileName := strconv.FormatInt(partNumber, 10)
+			f, err := os.Open(fileName)
+			if err != nil {
+				log.Print(err)
+				err = c.abortMultipartUpload()
+			}
+			log.Println("Uploading Part: ", partNumber)
+			err = c.uploadPart(f, partNumber)
+			f.Close()
+			if err != nil {
+				log.Print(err)
+				err = c.abortMultipartUpload()
+				return
+			}
+
+			err = os.Remove(fileName)
+			if err != nil {
+				log.Print(err)
+			}
+		case <-c.quit:
+			log.Println("Received Done signal")
+			return
+		}
+	}
 }
 
 func (c *Converter) setCSVHeaders() ([]string, int, error) {

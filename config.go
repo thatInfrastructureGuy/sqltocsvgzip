@@ -8,6 +8,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
+const (
+	minFileSize = 5 * 1024 * 1024
+)
+
 // Converter does the actual work of converting the rows to CSV.
 // There are a few settings you can override if you want to do
 // some fancy stuff to your CSV.
@@ -31,6 +35,8 @@ type Converter struct {
 	S3UploadThreads       int
 	S3UploadMaxPartSize   int64
 	S3CompletedParts      []*s3.CompletedPart
+	S3Uploadable          chan int64
+	quit                  chan bool
 
 	rows            *sql.Rows
 	rowPreProcessor CsvPreProcessorFunc
@@ -78,5 +84,6 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),
 		S3Acl:                 os.Getenv("S3_ACL"),
+		S3Uploadable:          make(chan int64, 10),
 	}
 }
