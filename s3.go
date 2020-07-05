@@ -57,6 +57,7 @@ func (c *Converter) createS3Session() error {
 
 func (c *Converter) abortMultipartUpload() error {
 	log.Println("Aborting multipart upload for UploadId: " + *c.s3Resp.UploadId)
+	c.quit <- true
 	abortInput := &s3.AbortMultipartUploadInput{
 		Bucket:   c.s3Resp.Bucket,
 		Key:      c.s3Resp.Key,
@@ -67,6 +68,8 @@ func (c *Converter) abortMultipartUpload() error {
 }
 
 func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput, error) {
+	log.Println("Completing multipart upload for UploadId: " + *c.s3Resp.UploadId)
+	c.quit <- true
 	completeInput := &s3.CompleteMultipartUploadInput{
 		Bucket:   c.s3Resp.Bucket,
 		Key:      c.s3Resp.Key,

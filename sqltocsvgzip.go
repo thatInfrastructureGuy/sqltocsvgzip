@@ -75,7 +75,6 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 				log.Println(awserr)
 			}
 		}
-		c.quit <- true
 		return err
 	}
 
@@ -266,8 +265,10 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if err != nil {
 		return 0, err
 	}
+	log.Printf("Part %v wrote bytes %v\n", partNumber, bytesWritten)
 
 	if bytesWritten < minFileSize {
+		log.Println("Will merge into prev file")
 		// Write the bytes to previous partFile
 		fprev, err := os.OpenFile(prevFile, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660)
 		if err != nil {
@@ -296,12 +297,13 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 
 	// send prev to channel
 	if partNumber > 1 {
+		log.Println("Add part to queue: ", partNumber-1)
 		c.S3Uploadable <- partNumber - 1
 	}
 
 	if uploadLastPart {
+		log.Println("Add last part to queue: ", partNumber)
 		c.S3Uploadable <- partNumber
-		c.quit <- true
 	}
 
 	// Reset file
@@ -342,7 +344,7 @@ func (c *Converter) UploadAndDeletePart() {
 				log.Print(err)
 			}
 		case <-c.quit:
-			log.Println("Received Done signal")
+			log.Println("Received Quit signal.")
 			return
 		}
 	}
