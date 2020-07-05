@@ -62,6 +62,8 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		if err != nil {
 			return err
 		}
+
+		go c.UploadAndDeletePart()
 	}
 
 	err = c.Write(f)

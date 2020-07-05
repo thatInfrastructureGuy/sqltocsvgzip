@@ -25,8 +25,6 @@ type Converter struct {
 	GzipGoroutines        int
 	GzipBatchPerGoroutine int
 	SingleThreaded        bool
-	S3Svc                 *s3.S3
-	S3Resp                *s3.CreateMultipartUploadOutput
 	S3Bucket              string
 	S3Region              string
 	S3Acl                 string
@@ -34,12 +32,14 @@ type Converter struct {
 	S3Upload              bool
 	S3UploadThreads       int
 	S3UploadMaxPartSize   int64
-	S3CompletedParts      []*s3.CompletedPart
 	S3Uploadable          chan int64
-	quit                  chan bool
 
-	rows            *sql.Rows
-	rowPreProcessor CsvPreProcessorFunc
+	quit             chan bool
+	s3Svc            *s3.S3
+	s3Resp           *s3.CreateMultipartUploadOutput
+	s3CompletedParts []*s3.CompletedPart
+	rows             *sql.Rows
+	rowPreProcessor  CsvPreProcessorFunc
 }
 
 // New will return a Converter which will write your CSV however you like
@@ -69,6 +69,7 @@ func New(rows *sql.Rows) *Converter {
 //		S3Path:                os.Getenv("S3_PATH"),
 //		S3Region:              os.Getenv("S3_REGION"),
 //		S3Acl:                 os.Getenv("S3_ACL"),  // If empty, defaults to bucket-owner-full-control
+//      S3Uploadable:          make(chan int64, 10),
 //
 func DefaultConfig(rows *sql.Rows) *Converter {
 	return &Converter{

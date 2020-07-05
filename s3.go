@@ -24,7 +24,7 @@ func (c *Converter) createMultipartRequest(file *os.File) (err error) {
 		ContentType: aws.String(fileType),
 	}
 
-	c.S3Resp, err = c.S3Svc.CreateMultipartUpload(input)
+	c.s3Resp, err = c.s3Svc.CreateMultipartUpload(input)
 	if err != nil {
 		if awserr, ok := err.(awserr.Error); ok {
 			return awserr
@@ -50,46 +50,46 @@ func (c *Converter) createS3Session() error {
 		Region: aws.String(c.S3Region),
 	}))
 
-	c.S3Svc = s3.New(sess)
+	c.s3Svc = s3.New(sess)
 
 	return nil
 }
 
 func (c *Converter) abortMultipartUpload() error {
-	log.Println("Aborting multipart upload for UploadId: " + *c.S3Resp.UploadId)
+	log.Println("Aborting multipart upload for UploadId: " + *c.s3Resp.UploadId)
 	abortInput := &s3.AbortMultipartUploadInput{
-		Bucket:   c.S3Resp.Bucket,
-		Key:      c.S3Resp.Key,
-		UploadId: c.S3Resp.UploadId,
+		Bucket:   c.s3Resp.Bucket,
+		Key:      c.s3Resp.Key,
+		UploadId: c.s3Resp.UploadId,
 	}
-	_, err := c.S3Svc.AbortMultipartUpload(abortInput)
+	_, err := c.s3Svc.AbortMultipartUpload(abortInput)
 	return err
 }
 
 func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput, error) {
 	completeInput := &s3.CompleteMultipartUploadInput{
-		Bucket:   c.S3Resp.Bucket,
-		Key:      c.S3Resp.Key,
-		UploadId: c.S3Resp.UploadId,
+		Bucket:   c.s3Resp.Bucket,
+		Key:      c.s3Resp.Key,
+		UploadId: c.s3Resp.UploadId,
 		MultipartUpload: &s3.CompletedMultipartUpload{
-			Parts: c.S3CompletedParts,
+			Parts: c.s3CompletedParts,
 		},
 	}
-	return c.S3Svc.CompleteMultipartUpload(completeInput)
+	return c.s3Svc.CompleteMultipartUpload(completeInput)
 }
 
 func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 	tryNum := 1
 	partInput := &s3.UploadPartInput{
 		Body:       file,
-		Bucket:     c.S3Resp.Bucket,
-		Key:        c.S3Resp.Key,
+		Bucket:     c.s3Resp.Bucket,
+		Key:        c.s3Resp.Key,
 		PartNumber: aws.Int64(partNumber),
-		UploadId:   c.S3Resp.UploadId,
+		UploadId:   c.s3Resp.UploadId,
 	}
 
 	for tryNum <= maxRetries {
-		uploadResult, err := c.S3Svc.UploadPart(partInput)
+		uploadResult, err := c.s3Svc.UploadPart(partInput)
 		if err != nil {
 			log.Println(err)
 			if tryNum == maxRetries {
@@ -102,7 +102,7 @@ func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
 			tryNum++
 		} else {
 			log.Println("Uploaded part #", partNumber)
-			c.S3CompletedParts = append(c.S3CompletedParts, &s3.CompletedPart{
+			c.s3CompletedParts = append(c.s3CompletedParts, &s3.CompletedPart{
 				ETag:       uploadResult.ETag,
 				PartNumber: aws.Int64(partNumber),
 			})
