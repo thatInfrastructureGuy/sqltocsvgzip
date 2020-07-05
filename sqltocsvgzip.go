@@ -75,6 +75,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 				log.Println(awserr)
 			}
 		}
+		c.quit <- true
 		return err
 	}
 
@@ -96,6 +97,9 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(f *os.File) error {
+	if c.S3UploadMaxPartSize < minFileSize {
+		return fmt.Errorf("S3UploadMaxPartSize should be greater than %v\n", minFileSize)
+	}
 	var countRows, partNumber int64
 	writeRow := true
 	rows := c.rows
@@ -222,12 +226,7 @@ func (c *Converter) Write(f *os.File) error {
 	if c.S3Upload {
 		// Increament PartNumber
 		partNumber++
-		fileInfo, err := f.Stat()
-		if err != nil {
-			return err
-		}
-		fileSize := fileInfo.Size()
-		if fileSize < minFileSize && partNumber == 1 {
+		if partNumber == 1 {
 			// Upload one time
 			err = c.UploadObjectToS3(f)
 			if err != nil {
@@ -249,7 +248,7 @@ func (c *Converter) Write(f *os.File) error {
 }
 
 func (c *Converter) UploadObjectToS3(f *os.File) error {
-	return fmt.Errorf("Method UploadObjectToS3 not implemented")
+	return fmt.Errorf("Method UploadObjectToS3 not implemented\n")
 }
 
 func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool) (newPartNumber int64, err error) {
@@ -296,7 +295,9 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	}
 
 	// send prev to channel
-	c.S3Uploadable <- partNumber - 1
+	if partNumber > 1 {
+		c.S3Uploadable <- partNumber - 1
+	}
 
 	if uploadLastPart {
 		c.S3Uploadable <- partNumber
