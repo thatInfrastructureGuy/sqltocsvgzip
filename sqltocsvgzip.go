@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/klauspost/compress/gzip"
@@ -52,6 +53,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 	}
 	defer f.Close()
 
+	wg := sync.WaitGroup{}
 	quit := make(chan bool, 1)
 
 	// Create MultiPart S3 Upload
@@ -67,12 +69,18 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		}
 
 		// Upload Parts to S3
-		go func() {
-			err = c.UploadAndDeletePart(quit)
-			if err != nil {
-				log.Println(err)
-			}
-		}()
+		c.s3Uploadable = make(chan *s3Obj, c.S3UploadThreads)
+
+		for i := 0; i < c.S3UploadThreads; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err = c.UploadAndDeletePart(quit)
+				if err != nil {
+					log.Println(err)
+				}
+			}()
+		}
 	}
 
 	err = c.Write(f, quit)
@@ -89,6 +97,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 	if c.S3Upload {
 		// Complete S3 upload
+		wg.Wait()
 		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
 			return err
@@ -199,9 +208,8 @@ func (c *Converter) Write(f *os.File, quit chan bool) error {
 				if err != nil {
 					return err
 				}
-				fileSize := fileInfo.Size()
 
-				if fileSize >= c.S3UploadMaxPartSize {
+				if fileInfo.Size() >= c.S3UploadMaxPartSize {
 					if partNumber > 10000 {
 						return fmt.Errorf("Number of parts cannot exceed 10000")
 					}
@@ -212,17 +220,6 @@ func (c *Converter) Write(f *os.File, quit chan bool) error {
 					if err != nil {
 						return err
 					}
-					// Reset file
-					err = f.Truncate(0)
-					if err != nil {
-						return err
-					}
-					// Move the reader
-					_, err = f.Seek(0, 0)
-					if err != nil {
-						return err
-					}
-
 				}
 			}
 		}
@@ -263,19 +260,8 @@ func (c *Converter) Write(f *os.File, quit chan bool) error {
 			if err != nil {
 				return err
 			}
-			// Reset file
-			err = f.Truncate(0)
-			if err != nil {
-				return err
-			}
-			// Move the reader
-			_, err = f.Seek(0, 0)
-			if err != nil {
-				return err
-			}
-
 		}
-		close(c.S3Uploadable)
+		close(c.s3Uploadable)
 	}
 
 	// Log the total number of rows processed.
@@ -300,29 +286,41 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64) (newPartNumber int6
 		log.Printf("Part %v wrote bytes %v.\n", partNumber, len(buf))
 	}
 
-	if len(buf) < minFileSize {
+	if len(buf) >= minFileSize {
+		c.gzipBuf = buf
+	} else {
 		if c.Debug {
 			log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
 		}
 		// Write the bytes to previous partFile
 		c.gzipBuf = append(c.gzipBuf, buf...)
 		newPartNumber = partNumber - 1
-	} else {
-		c.gzipBuf = buf
 	}
 
-	// send prev to channel
-	if partNumber > 1 {
-		log.Println("Add part to queue: #", partNumber-1)
-		c.S3Uploadable <- newPartNumber
+	log.Println("Add part to queue: #", newPartNumber)
+	c.s3Uploadable <- &s3Obj{
+		partNumber: newPartNumber,
+		buf:        c.gzipBuf,
+	}
+
+	// Reset file
+	err = f.Truncate(0)
+	if err != nil {
+		return 0, err
+	}
+	// Move the reader
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return 0, err
 	}
 
 	return newPartNumber, nil
 }
 
 func (c *Converter) UploadAndDeletePart(quit chan bool) (err error) {
-	for partNumber := range c.S3Uploadable {
-		err = c.uploadPart(partNumber)
+	mu := &sync.RWMutex{}
+	for s3obj := range c.s3Uploadable {
+		err = c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
 		if err != nil {
 			log.Println("Error occurred. Sending quit signal to writer.")
 			quit <- true
@@ -330,7 +328,9 @@ func (c *Converter) UploadAndDeletePart(quit chan bool) (err error) {
 			return err
 		}
 	}
-	log.Println("Received closed signal")
+	if c.Debug {
+		log.Println("Received closed signal")
+	}
 	return
 }
 

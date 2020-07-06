@@ -12,6 +12,11 @@ const (
 	minFileSize = 5 * 1024 * 1024
 )
 
+type s3Obj struct {
+	partNumber int64
+	buf        []byte
+}
+
 // Converter does the actual work of converting the rows to CSV.
 // There are a few settings you can override if you want to do
 // some fancy stuff to your CSV.
@@ -33,10 +38,10 @@ type Converter struct {
 	S3Upload              bool
 	S3UploadThreads       int
 	S3UploadMaxPartSize   int64
-	S3Uploadable          chan int64
 
 	s3Svc            *s3.S3
 	s3Resp           *s3.CreateMultipartUploadOutput
+	s3Uploadable     chan *s3Obj
 	s3CompletedParts []*s3.CompletedPart
 	rows             *sql.Rows
 	rowPreProcessor  CsvPreProcessorFunc
@@ -65,12 +70,12 @@ func New(rows *sql.Rows) *Converter {
 //		GzipGoroutines:        6,
 //		GzipBatchPerGoroutine: 180000,
 //		S3Upload:              true,
-//		S3UploadMaxPartSize:   50 * 1024 * 1024,
+//      S3UploadThreads:       6,
+//		S3UploadMaxPartSize:   5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
 //		S3Bucket:              os.Getenv("S3_BUCKET"),
 //		S3Path:                os.Getenv("S3_PATH"),
 //		S3Region:              os.Getenv("S3_REGION"),
 //		S3Acl:                 os.Getenv("S3_ACL"),  // If empty, defaults to bucket-owner-full-control
-//      S3Uploadable:          make(chan int64, 10),
 //
 func DefaultConfig(rows *sql.Rows) *Converter {
 	return &Converter{
@@ -81,11 +86,11 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		GzipGoroutines:        6,
 		GzipBatchPerGoroutine: 180000,
 		S3Upload:              true,
-		S3UploadMaxPartSize:   50 * 1024 * 1024,
+		S3UploadThreads:       6,
+		S3UploadMaxPartSize:   5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
 		S3Bucket:              os.Getenv("S3_BUCKET"),
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),
 		S3Acl:                 os.Getenv("S3_ACL"),
-		S3Uploadable:          make(chan int64, 10),
 	}
 }

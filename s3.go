@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -79,10 +80,10 @@ func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput
 	return c.s3Svc.CompleteMultipartUpload(completeInput)
 }
 
-func (c *Converter) uploadPart(partNumber int64) (err error) {
+func (c *Converter) uploadPart(partNumber int64, buf []byte, mu *sync.RWMutex) (err error) {
 	tryNum := 1
 	partInput := &s3.UploadPartInput{
-		Body:       bytes.NewReader(c.gzipBuf),
+		Body:       bytes.NewReader(buf),
 		Bucket:     c.s3Resp.Bucket,
 		Key:        c.s3Resp.Key,
 		PartNumber: aws.Int64(partNumber),
@@ -103,10 +104,12 @@ func (c *Converter) uploadPart(partNumber int64) (err error) {
 			tryNum++
 		} else {
 			log.Println("Uploaded part: #", partNumber)
+			mu.Lock()
 			c.s3CompletedParts = append(c.s3CompletedParts, &s3.CompletedPart{
 				ETag:       uploadResult.ETag,
 				PartNumber: aws.Int64(partNumber),
 			})
+			mu.Unlock()
 			return nil
 		}
 	}
