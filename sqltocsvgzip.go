@@ -51,7 +51,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 	}
 	defer f.Close()
 
-	done, quit := make(chan bool, 1), make(chan bool, 1)
+	quit := make(chan bool, 1)
 
 	// Create MultiPart S3 Upload
 	if c.S3Upload {
@@ -67,14 +67,14 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 		// Upload Parts to S3
 		go func() {
-			err = c.UploadAndDeletePart(done, quit)
+			err = c.UploadAndDeletePart(quit)
 			if err != nil {
 				log.Println(err)
 			}
 		}()
 	}
 
-	err = c.Write(f, done, quit)
+	err = c.Write(f, quit)
 	if err != nil {
 		// Abort S3 Upload
 		if c.S3Upload {
@@ -99,8 +99,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 }
 
 // Write writes the csv.gzip to the Writer provided
-func (c *Converter) Write(f *os.File, done, quit chan bool) error {
-	log.Println("S3UploadMaxPartSize is: ", c.S3UploadMaxPartSize)
+func (c *Converter) Write(f *os.File, quit chan bool) error {
 	if c.S3UploadMaxPartSize < minFileSize {
 		return fmt.Errorf("S3UploadMaxPartSize should be greater than %v\n", minFileSize)
 	}
@@ -208,8 +207,7 @@ func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 					// Increament PartNumber
 					partNumber++
 					// Add to Queue
-					log.Println("Adding to Queue")
-					partNumber, err = c.AddToQueue(f, partNumber, false)
+					partNumber, err = c.AddToQueue(f, partNumber)
 					if err != nil {
 						return err
 					}
@@ -260,7 +258,7 @@ func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 			}
 		} else {
 			// Add to Queue for multipart upload
-			partNumber, err = c.AddToQueue(f, partNumber, true)
+			partNumber, err = c.AddToQueue(f, partNumber)
 			if err != nil {
 				return err
 			}
@@ -276,7 +274,7 @@ func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 			}
 
 		}
-		done <- true
+		close(c.S3Uploadable)
 	}
 
 	// Log the total number of rows processed.
@@ -289,7 +287,7 @@ func (c *Converter) UploadObjectToS3(f *os.File) error {
 	return fmt.Errorf("Method UploadObjectToS3 not implemented\n")
 }
 
-func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool) (newPartNumber int64, err error) {
+func (c *Converter) AddToQueue(f *os.File, partNumber int64) (newPartNumber int64, err error) {
 	newPartNumber = partNumber
 
 	buf, err := ioutil.ReadFile(f.Name())
@@ -297,10 +295,14 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 		return 0, err
 	}
 
-	log.Printf("Part %v wrote bytes %v.\n", partNumber, len(buf))
+	if c.Debug {
+		log.Printf("Part %v wrote bytes %v.\n", partNumber, len(buf))
+	}
 
-	if len(buf) < minFileSize {
-		log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
+	if len(buf) < int(c.S3UploadMaxPartSize) {
+		if c.Debug {
+			log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
+		}
 		// Write the bytes to previous partFile
 		c.gzipBuf = append(c.gzipBuf, buf...)
 		newPartNumber = partNumber - 1
@@ -310,30 +312,24 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 
 	// send prev to channel
 	if partNumber > 1 {
-		log.Println("Add part to queue: ", partNumber-1)
+		log.Println("Add part to queue: #", partNumber-1)
 		c.S3Uploadable <- newPartNumber
 	}
 
 	return newPartNumber, nil
 }
 
-func (c *Converter) UploadAndDeletePart(done, quit chan bool) (err error) {
-	for {
-		select {
-		case partNumber := <-c.S3Uploadable:
-			log.Println("Uploading Part: ", partNumber)
-			err = c.uploadPart(partNumber)
-			if err != nil {
-				log.Println("Sending quit signal to Writer.")
-				quit <- true
-				c.abortMultipartUpload()
-				return err
-			}
-		case <-done:
-			log.Println("Received Done signal.")
+func (c *Converter) UploadAndDeletePart(quit chan bool) (err error) {
+	for partNumber := range c.S3Uploadable {
+		err = c.uploadPart(partNumber)
+		if err != nil {
+			log.Println("Error occurred. Sending quit signal to writer.")
+			quit <- true
+			c.abortMultipartUpload()
+			return err
 		}
 	}
-
+	log.Println("Received closed signal")
 	return
 }
 

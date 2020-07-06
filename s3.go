@@ -99,10 +99,10 @@ func (c *Converter) uploadPart(partNumber int64) (err error) {
 				}
 				return err
 			}
-			log.Println("Retrying to upload part #", partNumber)
+			log.Println("Retrying to upload part: #", partNumber)
 			tryNum++
 		} else {
-			log.Println("Uploaded part #", partNumber)
+			log.Println("Uploaded part: #", partNumber)
 			c.s3CompletedParts = append(c.s3CompletedParts, &s3.CompletedPart{
 				ETag:       uploadResult.ETag,
 				PartNumber: aws.Int64(partNumber),
