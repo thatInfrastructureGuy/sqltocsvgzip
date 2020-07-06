@@ -39,6 +39,7 @@ type Converter struct {
 	s3CompletedParts []*s3.CompletedPart
 	rows             *sql.Rows
 	rowPreProcessor  CsvPreProcessorFunc
+	gzipBuf          []byte
 }
 
 // New will return a Converter which will write your CSV however you like

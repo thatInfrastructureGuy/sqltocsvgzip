@@ -1,9 +1,9 @@
 package sqltocsvgzip
 
 import (
+	"bytes"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -13,7 +13,7 @@ import (
 
 const maxRetries = 3
 
-func (c *Converter) createMultipartRequest(file *os.File) (err error) {
+func (c *Converter) createMultipartRequest() (err error) {
 	// Filetype ref: https://mimesniff.spec.whatwg.org/#matching-an-archive-type-pattern
 	fileType := "application/x-gzip"
 
@@ -79,10 +79,10 @@ func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput
 	return c.s3Svc.CompleteMultipartUpload(completeInput)
 }
 
-func (c *Converter) uploadPart(file *os.File, partNumber int64) (err error) {
+func (c *Converter) uploadPart(partNumber int64) (err error) {
 	tryNum := 1
 	partInput := &s3.UploadPartInput{
-		Body:       file,
+		Body:       bytes.NewReader(c.gzipBuf),
 		Bucket:     c.s3Resp.Bucket,
 		Key:        c.s3Resp.Key,
 		PartNumber: aws.Int64(partNumber),

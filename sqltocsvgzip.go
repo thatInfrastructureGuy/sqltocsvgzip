@@ -10,9 +10,9 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/klauspost/compress/gzip"
@@ -60,7 +60,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 			return err
 		}
 
-		err = c.createMultipartRequest(f)
+		err = c.createMultipartRequest()
 		if err != nil {
 			return err
 		}
@@ -290,137 +290,51 @@ func (c *Converter) UploadObjectToS3(f *os.File) error {
 }
 
 func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool) (newPartNumber int64, err error) {
-	partFile := strconv.FormatInt(partNumber, 10)
-	prevFile := strconv.FormatInt(partNumber-1, 10)
 	newPartNumber = partNumber
 
-	fcurr, err := os.Create(partFile)
+	buf, err := ioutil.ReadFile(f.Name())
 	if err != nil {
 		return 0, err
 	}
 
-	fcurrInfo, err := fcurr.Stat()
-	if err != nil {
-		return 0, err
-	}
+	log.Printf("Part %v wrote bytes %v.\n", partNumber, len(buf))
 
-	bytesWritten, err := io.Copy(fcurr, f)
-	if err != nil {
-		return 0, err
-	}
-
-	time.Sleep(5 * time.Second)
-	fcurrInfo, err = fcurr.Stat()
-	if err != nil {
-		return 0, err
-	}
-	fcurrSize := fcurrInfo.Size()
-	log.Printf("1. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
-	time.Sleep(5 * time.Second)
-	bytesWritten, err = io.Copy(fcurr, f)
-	if err != nil {
-		return 0, err
-	}
-	fcurrInfo, err = fcurr.Stat()
-	if err != nil {
-		return 0, err
-	}
-	fcurrSize = fcurrInfo.Size()
-	log.Printf("2. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
-	fcurr.Close()
-
-	fcurr, err = os.Open(partFile)
-	if err != nil {
-		return 0, err
-	}
-	bytesWritten, err = io.Copy(fcurr, f)
-	if err != nil {
-		return 0, err
-	}
-	fcurrInfo, err = fcurr.Stat()
-	if err != nil {
-		return 0, err
-	}
-	fcurrSize = fcurrInfo.Size()
-	fcurr.Close()
-	log.Printf("3. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
-
-	if fcurrSize < minFileSize {
+	if len(buf) < minFileSize {
 		log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
 		// Write the bytes to previous partFile
-		fprev, err := os.OpenFile(prevFile, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660)
-		if err != nil {
-			return 0, err
-		}
-		defer fprev.Close()
-
-		_, err = io.Copy(fprev, f)
-		if err != nil {
-			return 0, err
-		}
-
-		// Delete the current partFile
-		err = os.Remove(partFile)
-		if err != nil {
-			return 0, err
-		}
-
+		c.gzipBuf = append(c.gzipBuf, buf...)
 		newPartNumber = partNumber - 1
-
-		if uploadLastPart {
-			uploadLastPart = false
-		}
+	} else {
+		c.gzipBuf = buf
 	}
 
 	// send prev to channel
 	if partNumber > 1 {
 		log.Println("Add part to queue: ", partNumber-1)
-		c.S3Uploadable <- partNumber - 1
-	}
-
-	if uploadLastPart {
-		log.Println("Add last part to queue: ", partNumber)
-		c.S3Uploadable <- partNumber
+		c.S3Uploadable <- newPartNumber
 	}
 
 	return newPartNumber, nil
 }
 
-func (c *Converter) UploadAndDeletePart(done, quit chan bool) error {
-	var err error
-	var f *os.File
-
-L:
+func (c *Converter) UploadAndDeletePart(done, quit chan bool) (err error) {
 	for {
 		select {
 		case partNumber := <-c.S3Uploadable:
-			fileName := strconv.FormatInt(partNumber, 10)
-			f, err = os.Open(fileName)
-			if err != nil {
-				break L
-			}
 			log.Println("Uploading Part: ", partNumber)
-			err = c.uploadPart(f, partNumber)
-			f.Close()
+			err = c.uploadPart(partNumber)
 			if err != nil {
-				break L
-			}
-
-			err = os.Remove(fileName)
-			if err != nil {
-				break L
+				log.Println("Sending quit signal to Writer.")
+				quit <- true
+				c.abortMultipartUpload()
+				return err
 			}
 		case <-done:
 			log.Println("Received Done signal.")
 		}
 	}
 
-	if err != nil {
-		log.Println("Sending quit signal to Writer.")
-		quit <- true
-		c.abortMultipartUpload()
-	}
-	return err
+	return
 }
 
 func (c *Converter) setCSVHeaders() ([]string, int, error) {
