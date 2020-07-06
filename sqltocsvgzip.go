@@ -310,13 +310,33 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	}
 
 	time.Sleep(5 * time.Second)
+	fcurrInfo, err = fcurr.Stat()
+	if err != nil {
+		return 0, err
+	}
 	fcurrSize := fcurrInfo.Size()
 	log.Printf("1. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
 	time.Sleep(5 * time.Second)
+	fcurrInfo, err = fcurr.Stat()
+	if err != nil {
+		return 0, err
+	}
 	fcurrSize = fcurrInfo.Size()
 	log.Printf("2. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
 	fcurr.Close()
+
+	fcurr, err = os.Open(partFile)
+	if err != nil {
+		return 0, err
+	}
+	fcurrInfo, err = fcurr.Stat()
+	if err != nil {
+		return 0, err
+	}
+	fcurrSize = fcurrInfo.Size()
+	fcurr.Close()
 	log.Printf("3. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
+
 	if fcurrSize < minFileSize {
 		log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
 		// Write the bytes to previous partFile
