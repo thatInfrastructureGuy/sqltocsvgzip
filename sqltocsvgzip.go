@@ -202,6 +202,11 @@ func (c *Converter) Write(f *os.File) error {
 						return err
 					}
 				}
+				select {
+				case <-c.quit:
+					return fmt.Errorf("Received quit signal. Exiting.")
+				default:
+				}
 			}
 		}
 	}
@@ -268,11 +273,16 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if err != nil {
 		return 0, err
 	}
+	fcurrInfo, err := fcurr.Stat()
+	if err != nil {
+		return 0, err
+	}
+	bytesCopied := fcurrInfo.Size()
 	fcurr.Close()
-	log.Printf("Part %v wrote bytes %v\n", partNumber, bytesWritten)
+	log.Printf("Part %v wrote bytes %v and copied bytes %v \n", partNumber, bytesWritten, bytesCopied)
 
 	if bytesWritten < minFileSize {
-		log.Println("Will merge into prev file")
+		log.Printf("Part size is less than %v. Merging with previous part.\n", bytesWritten)
 		// Write the bytes to previous partFile
 		fprev, err := os.OpenFile(prevFile, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660)
 		if err != nil {
