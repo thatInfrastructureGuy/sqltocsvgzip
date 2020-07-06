@@ -83,15 +83,11 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		// Upload Parts to S3
 		err = c.UploadAndDeletePart(done, quit)
 		if err != nil {
-			return nil
+			return err
 		}
 		// Complete S3 upload
 		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
-			awserr := c.abortMultipartUpload()
-			if awserr != nil {
-				log.Println(awserr)
-			}
 			return err
 		}
 		log.Printf("Successfully uploaded file: %s\n", completeResponse.String())
@@ -244,7 +240,7 @@ func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 			// Upload one time
 			err = c.UploadObjectToS3(f)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 		} else {
 			// Add to Queue for multipart upload
@@ -336,37 +332,39 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 }
 
 func (c *Converter) UploadAndDeletePart(done, quit chan bool) error {
+	var err error
+
+L:
 	for {
 		select {
 		case partNumber := <-c.S3Uploadable:
 			fileName := strconv.FormatInt(partNumber, 10)
 			f, err := os.Open(fileName)
 			if err != nil {
-				log.Println(err)
-				quit <- true
-				return c.abortMultipartUpload()
+				break L
 			}
 			log.Println("Uploading Part: ", partNumber)
 			err = c.uploadPart(f, partNumber)
 			f.Close()
 			if err != nil {
-				log.Print(err)
-				quit <- true
-				return c.abortMultipartUpload()
+				break L
 			}
 
 			err = os.Remove(fileName)
 			if err != nil {
-				log.Println(err)
-				quit <- true
-				return c.abortMultipartUpload()
+				break L
 			}
 		case <-done:
 			log.Println("Received Done signal.")
 		}
 	}
 
-	return nil
+	if err != nil {
+		log.Println("Sending quit signal to Writer.")
+		quit <- true
+		c.abortMultipartUpload()
+	}
+	return err
 }
 
 func (c *Converter) setCSVHeaders() ([]string, int, error) {
