@@ -290,10 +290,16 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if err != nil {
 		return 0, err
 	}
-	fcurr.Close()
-	log.Printf("Part %v wrote bytes %v.\n", partNumber, bytesWritten)
+	fcurrInfo, err := fcurr.Stat()
+	if err != nil {
+		return 0, err
+	}
+	fcurrSize := fcurrInfo.Size()
 
-	if bytesWritten < minFileSize {
+	fcurr.Close()
+	log.Printf("Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
+
+	if fcurrSize < minFileSize {
 		log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
 		// Write the bytes to previous partFile
 		fprev, err := os.OpenFile(prevFile, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660)
