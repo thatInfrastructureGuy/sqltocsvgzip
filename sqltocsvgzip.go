@@ -278,7 +278,7 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 		return 0, err
 	}
 	fcurr.Close()
-	log.Printf("Part %v wrote bytes %v and copied bytes %v \n", partNumber, bytesWritten)
+	log.Printf("Part %v wrote bytes %v.\n", partNumber, bytesWritten)
 
 	if bytesWritten < minFileSize {
 		log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
@@ -366,8 +366,8 @@ L:
 		}
 	}
 
+	log.Println("Sending quit signal to producer")
 	quit <- true
-
 }
 
 func (c *Converter) setCSVHeaders() ([]string, int, error) {
