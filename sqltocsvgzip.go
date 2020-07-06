@@ -51,6 +51,8 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 	}
 	defer f.Close()
 
+	done, quit := make(chan bool, 1), make(chan bool, 1)
+
 	// Create MultiPart S3 Upload
 	if c.S3Upload {
 		err = c.createS3Session()
@@ -62,29 +64,29 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		if err != nil {
 			return err
 		}
+
+		// Upload Parts to S3
+		go func() {
+			err = c.UploadAndDeletePart(done, quit)
+			if err != nil {
+				log.Println(err)
+			}
+		}()
 	}
 
-	done, quit := make(chan bool, 1), make(chan bool, 1)
-	go func() {
-		err = c.Write(f, done, quit)
-		if err != nil {
-			// Abort S3 Upload
-			if c.S3Upload {
-				awserr := c.abortMultipartUpload()
-				if awserr != nil {
-					log.Println(awserr)
-				}
+	err = c.Write(f, done, quit)
+	if err != nil {
+		// Abort S3 Upload
+		if c.S3Upload {
+			awserr := c.abortMultipartUpload()
+			if awserr != nil {
+				return awserr
 			}
-			log.Println(err)
 		}
-	}()
+		return err
+	}
 
 	if c.S3Upload {
-		// Upload Parts to S3
-		err = c.UploadAndDeletePart(done, quit)
-		if err != nil {
-			return err
-		}
 		// Complete S3 upload
 		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
