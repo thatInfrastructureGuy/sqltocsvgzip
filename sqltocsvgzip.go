@@ -201,11 +201,19 @@ func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 				}
 				fileSize := fileInfo.Size()
 
-				if fileSize >= c.S3UploadMaxPartSize && partNumber < 10000 {
+				if fileSize >= c.S3UploadMaxPartSize {
+					if partNumber > 10000 {
+						return fmt.Errorf("Number of parts cannot exceed 10000")
+					}
 					// Increament PartNumber
 					partNumber++
 					// Add to Queue
 					log.Println("Adding to Queue")
+					err = f.Sync()
+					if err != nil {
+						return err
+					}
+
 					partNumber, err = c.AddToQueue(f, partNumber, false)
 					if err != nil {
 						return err
