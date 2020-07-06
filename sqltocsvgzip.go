@@ -144,6 +144,9 @@ func (c *Converter) Write(f *os.File, quit chan bool) error {
 
 	// Buffer size: string bytes x sqlBatchSize x No. of Columns
 	sqlBatchSize := c.getSqlBatchSize(totalColumns)
+	if c.Debug {
+		log.Println("SQL Batch size: ", sqlBatchSize)
+	}
 
 	// Create buffer
 	sqlRowBatch := make([][]string, 0, sqlBatchSize)
