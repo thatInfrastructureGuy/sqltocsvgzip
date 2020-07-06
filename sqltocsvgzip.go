@@ -209,11 +209,6 @@ func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 					partNumber++
 					// Add to Queue
 					log.Println("Adding to Queue")
-					err = f.Sync()
-					if err != nil {
-						return err
-					}
-
 					partNumber, err = c.AddToQueue(f, partNumber, false)
 					if err != nil {
 						return err
@@ -317,10 +312,6 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	time.Sleep(5 * time.Second)
 	fcurrSize := fcurrInfo.Size()
 	log.Printf("1. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
-	err = fcurr.Sync()
-	if err != nil {
-		return 0, err
-	}
 	time.Sleep(5 * time.Second)
 	fcurrSize = fcurrInfo.Size()
 	log.Printf("2. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
@@ -336,10 +327,6 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 		defer fprev.Close()
 
 		_, err = io.Copy(fprev, f)
-		if err != nil {
-			return 0, err
-		}
-		err = fprev.Sync()
 		if err != nil {
 			return 0, err
 		}
