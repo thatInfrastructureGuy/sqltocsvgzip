@@ -62,11 +62,9 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		if err != nil {
 			return err
 		}
-
-		c.UploadAndDeletePart()
 	}
 
-	go func(f *os.File) {
+	go func() {
 		err = c.Write(f)
 		if err != nil {
 			// Abort S3 Upload
@@ -78,10 +76,12 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 			}
 			log.Println(err)
 		}
-	}(f)
+	}()
 
-	// Complete S3 upload
 	if c.S3Upload {
+		// Upload Parts to S3
+		c.UploadAndDeletePart()
+		// Complete S3 upload
 		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
 			awserr := c.abortMultipartUpload()
