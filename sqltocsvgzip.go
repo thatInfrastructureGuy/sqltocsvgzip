@@ -218,6 +218,17 @@ func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 					if err != nil {
 						return err
 					}
+					// Reset file
+					err = f.Truncate(0)
+					if err != nil {
+						return err
+					}
+					// Move the reader
+					_, err = f.Seek(0, 0)
+					if err != nil {
+						return err
+					}
+
 				}
 			}
 		}
@@ -255,9 +266,20 @@ func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 		} else {
 			// Add to Queue for multipart upload
 			partNumber, err = c.AddToQueue(f, partNumber, true)
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
+			// Reset file
+			err = f.Truncate(0)
+			if err != nil {
+				return err
+			}
+			// Move the reader
+			_, err = f.Seek(0, 0)
+			if err != nil {
+				return err
+			}
+
 		}
 		done <- true
 	}
@@ -339,17 +361,6 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if uploadLastPart {
 		log.Println("Add last part to queue: ", partNumber)
 		c.S3Uploadable <- partNumber
-	}
-
-	// Reset file
-	err = f.Truncate(0)
-	if err != nil {
-		return 0, err
-	}
-	// Move the reader
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return 0, err
 	}
 
 	return newPartNumber, nil
