@@ -63,20 +63,22 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 			return err
 		}
 
-		go c.UploadAndDeletePart()
+		c.UploadAndDeletePart()
 	}
 
-	err = c.Write(f)
-	if err != nil {
-		// Abort S3 Upload
-		if c.S3Upload {
-			awserr := c.abortMultipartUpload()
-			if awserr != nil {
-				log.Println(awserr)
+	go func() {
+		err = c.Write(f)
+		if err != nil {
+			// Abort S3 Upload
+			if c.S3Upload {
+				awserr := c.abortMultipartUpload()
+				if awserr != nil {
+					log.Println(awserr)
+				}
 			}
+			log.Println(err)
 		}
-		return err
-	}
+	}()
 
 	// Complete S3 upload
 	if c.S3Upload {
@@ -259,12 +261,12 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if err != nil {
 		return 0, err
 	}
-	defer fcurr.Close()
 
 	bytesWritten, err := io.Copy(fcurr, f)
 	if err != nil {
 		return 0, err
 	}
+	fcurr.Close()
 	log.Printf("Part %v wrote bytes %v\n", partNumber, bytesWritten)
 
 	if bytesWritten < minFileSize {
@@ -282,7 +284,6 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 		}
 
 		// Delete the current partFile
-		fcurr.Close()
 		err = os.Remove(partFile)
 		if err != nil {
 			return 0, err
@@ -304,6 +305,7 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if uploadLastPart {
 		log.Println("Add last part to queue: ", partNumber)
 		c.S3Uploadable <- partNumber
+		c.quit <- true
 	}
 
 	// Reset file
