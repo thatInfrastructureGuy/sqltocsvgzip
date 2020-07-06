@@ -64,7 +64,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		}
 	}
 
-	var done, quit chan bool
+	done, quit := make(chan bool, 1), make(chan bool, 1)
 	go func() {
 		err = c.Write(f, done, quit)
 		if err != nil {
