@@ -99,7 +99,6 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		// Complete S3 upload
 		wg.Wait()
 
-		time.Sleep(15 * time.Second)
 		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
 			return err
