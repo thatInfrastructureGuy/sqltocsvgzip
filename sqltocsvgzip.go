@@ -66,7 +66,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		c.UploadAndDeletePart()
 	}
 
-	go func() {
+	go func(f *os.File) {
 		err = c.Write(f)
 		if err != nil {
 			// Abort S3 Upload
@@ -78,7 +78,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 			}
 			log.Println(err)
 		}
-	}()
+	}(f)
 
 	// Complete S3 upload
 	if c.S3Upload {
@@ -98,6 +98,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(f *os.File) error {
+	log.Println("S3UploadMaxPartSize is: ", c.S3UploadMaxPartSize)
 	if c.S3UploadMaxPartSize < minFileSize {
 		return fmt.Errorf("S3UploadMaxPartSize should be greater than %v\n", minFileSize)
 	}
@@ -195,6 +196,7 @@ func (c *Converter) Write(f *os.File) error {
 					// Increament PartNumber
 					partNumber++
 					// Add to Queue
+					log.Println("Adding to Queue")
 					partNumber, err = c.AddToQueue(f, partNumber, false)
 					if err != nil {
 						return err
