@@ -317,6 +317,10 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	fcurrSize := fcurrInfo.Size()
 	log.Printf("1. Part %v wrote bytes %v and file size %v.\n", partNumber, bytesWritten, fcurrSize)
 	time.Sleep(5 * time.Second)
+	bytesWritten, err = io.Copy(fcurr, f)
+	if err != nil {
+		return 0, err
+	}
 	fcurrInfo, err = fcurr.Stat()
 	if err != nil {
 		return 0, err
@@ -326,6 +330,10 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	fcurr.Close()
 
 	fcurr, err = os.Open(partFile)
+	if err != nil {
+		return 0, err
+	}
+	bytesWritten, err = io.Copy(fcurr, f)
 	if err != nil {
 		return 0, err
 	}
