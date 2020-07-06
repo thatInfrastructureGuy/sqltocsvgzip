@@ -103,7 +103,11 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("Successfully uploaded file: %s\n", url.PathEscape(completeResponse.String()))
+		uploadPath, err := url.PathUnescape(completeResponse.String())
+		if err != nil {
+			return err
+		}
+		log.Printf("Successfully uploaded file: %s\n", uploadPath)
 	}
 
 	return nil
@@ -254,10 +258,14 @@ func (c *Converter) Write(f *os.File, quit chan bool) error {
 		partNumber++
 		if partNumber == 1 {
 			// Upload one time
+			if c.Debug {
+				log.Println("Gzip files < 5 MB are uploaded together without batching.")
+			}
 			err = c.UploadObjectToS3(f)
 			if err != nil {
 				return err
 			}
+			c.abortMultipartUpload()
 		} else {
 			// Add to Queue for multipart upload
 			partNumber, err = c.AddToQueue(f, partNumber)
@@ -272,10 +280,6 @@ func (c *Converter) Write(f *os.File, quit chan bool) error {
 	log.Println("Total number of sql rows processed: ", countRows)
 
 	return nil
-}
-
-func (c *Converter) UploadObjectToS3(f *os.File) error {
-	return fmt.Errorf("Method UploadObjectToS3 not implemented\n")
 }
 
 func (c *Converter) AddToQueue(f *os.File, partNumber int64) (newPartNumber int64, err error) {

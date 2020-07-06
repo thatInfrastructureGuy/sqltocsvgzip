@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 const maxRetries = 3
@@ -113,5 +115,32 @@ func (c *Converter) uploadPart(partNumber int64, buf []byte, mu *sync.RWMutex) (
 			return nil
 		}
 	}
+	return nil
+}
+
+func (c *Converter) UploadObjectToS3(f *os.File) error {
+	fileType := "application/x-gzip"
+
+	// The session the S3 Uploader will use
+	sess := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String(c.S3Region),
+	}))
+
+	// Create an uploader with the session and default options
+	uploader := s3manager.NewUploader(sess)
+
+	// Upload the file to S3.
+	res, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket:      aws.String(c.S3Bucket),
+		Key:         aws.String(c.S3Path),
+		ACL:         aws.String(c.S3Acl),
+		ContentType: aws.String(fileType),
+		Body:        f,
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Println(res.Location)
 	return nil
 }
