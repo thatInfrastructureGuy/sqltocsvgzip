@@ -87,6 +87,5 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		S3Region:              os.Getenv("S3_REGION"),
 		S3Acl:                 os.Getenv("S3_ACL"),
 		S3Uploadable:          make(chan int64, 10),
-		Debug:                 true,
 	}
 }
