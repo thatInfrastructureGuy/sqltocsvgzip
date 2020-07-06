@@ -276,6 +276,10 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if err != nil {
 		return 0, err
 	}
+	err = fcurr.Sync()
+	if err != nil {
+		return 0, err
+	}
 	fcurr.Close()
 	log.Printf("Part %v wrote bytes %v.\n", partNumber, bytesWritten)
 
@@ -289,6 +293,10 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 		defer fprev.Close()
 
 		_, err = io.Copy(fprev, f)
+		if err != nil {
+			return 0, err
+		}
+		err = fprev.Sync()
 		if err != nil {
 			return 0, err
 		}
