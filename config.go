@@ -92,5 +92,6 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),
 		S3Acl:                 os.Getenv("S3_ACL"),
+		Debug:                 true,
 	}
 }
