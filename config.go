@@ -86,7 +86,7 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		GzipGoroutines:        6,
 		GzipBatchPerGoroutine: 180000,
 		S3Upload:              true,
-		S3UploadThreads:       1,
+		S3UploadThreads:       6,
 		S3UploadMaxPartSize:   5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
 		S3Bucket:              os.Getenv("S3_BUCKET"),
 		S3Path:                os.Getenv("S3_PATH"),
