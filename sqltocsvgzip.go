@@ -333,13 +333,14 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 
 func (c *Converter) UploadAndDeletePart(done, quit chan bool) error {
 	var err error
+	var f *os.File
 
 L:
 	for {
 		select {
 		case partNumber := <-c.S3Uploadable:
 			fileName := strconv.FormatInt(partNumber, 10)
-			f, err := os.Open(fileName)
+			f, err = os.Open(fileName)
 			if err != nil {
 				break L
 			}
