@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
@@ -92,7 +93,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("Successfully uploaded file: %s\n", completeResponse.String())
+		log.Printf("Successfully uploaded file: %s\n", url.PathEscape(completeResponse.String()))
 	}
 
 	return nil
@@ -299,7 +300,7 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64) (newPartNumber int6
 		log.Printf("Part %v wrote bytes %v.\n", partNumber, len(buf))
 	}
 
-	if len(buf) < int(c.S3UploadMaxPartSize) {
+	if len(buf) < minFileSize {
 		if c.Debug {
 			log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
 		}
