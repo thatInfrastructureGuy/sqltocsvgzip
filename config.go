@@ -34,7 +34,6 @@ type Converter struct {
 	S3UploadMaxPartSize   int64
 	S3Uploadable          chan int64
 
-	quit             chan bool
 	s3Svc            *s3.S3
 	s3Resp           *s3.CreateMultipartUploadOutput
 	s3CompletedParts []*s3.CompletedPart

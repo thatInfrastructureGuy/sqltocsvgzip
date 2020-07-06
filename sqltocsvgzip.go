@@ -64,8 +64,9 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		}
 	}
 
+	var done, quit chan bool
 	go func() {
-		err = c.Write(f)
+		err = c.Write(f, done, quit)
 		if err != nil {
 			// Abort S3 Upload
 			if c.S3Upload {
@@ -80,7 +81,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 	if c.S3Upload {
 		// Upload Parts to S3
-		c.UploadAndDeletePart()
+		c.UploadAndDeletePart(done, quit)
 		// Complete S3 upload
 		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
@@ -97,7 +98,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 }
 
 // Write writes the csv.gzip to the Writer provided
-func (c *Converter) Write(f *os.File) error {
+func (c *Converter) Write(f *os.File, done, quit chan bool) error {
 	log.Println("S3UploadMaxPartSize is: ", c.S3UploadMaxPartSize)
 	if c.S3UploadMaxPartSize < minFileSize {
 		return fmt.Errorf("S3UploadMaxPartSize should be greater than %v\n", minFileSize)
@@ -186,6 +187,13 @@ func (c *Converter) Write(f *os.File) error {
 			// If UploadtoS3 is set to true &&
 			// If size of the gzip file exceeds maxFileStorage
 			if c.S3Upload {
+				select {
+				case <-quit:
+					return fmt.Errorf("Received quit signal. Exiting.")
+				default:
+					// Do nothing
+				}
+
 				fileInfo, err := f.Stat()
 				if err != nil {
 					return err
@@ -201,11 +209,6 @@ func (c *Converter) Write(f *os.File) error {
 					if err != nil {
 						return err
 					}
-				}
-				select {
-				case <-c.quit:
-					return fmt.Errorf("Received quit signal. Exiting.")
-				default:
 				}
 			}
 		}
@@ -247,6 +250,7 @@ func (c *Converter) Write(f *os.File) error {
 		if err != nil {
 			return err
 		}
+		done <- true
 	}
 
 	// Log the total number of rows processed.
@@ -273,16 +277,11 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if err != nil {
 		return 0, err
 	}
-	fcurrInfo, err := fcurr.Stat()
-	if err != nil {
-		return 0, err
-	}
-	bytesCopied := fcurrInfo.Size()
 	fcurr.Close()
-	log.Printf("Part %v wrote bytes %v and copied bytes %v \n", partNumber, bytesWritten, bytesCopied)
+	log.Printf("Part %v wrote bytes %v and copied bytes %v \n", partNumber, bytesWritten)
 
 	if bytesWritten < minFileSize {
-		log.Printf("Part size is less than %v. Merging with previous part.\n", bytesWritten)
+		log.Printf("Part size is less than %v. Merging with previous part.\n", minFileSize)
 		// Write the bytes to previous partFile
 		fprev, err := os.OpenFile(prevFile, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660)
 		if err != nil {
@@ -290,7 +289,7 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 		}
 		defer fprev.Close()
 
-		bytesWritten, err = io.Copy(fprev, f)
+		_, err = io.Copy(fprev, f)
 		if err != nil {
 			return 0, err
 		}
@@ -317,7 +316,6 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	if uploadLastPart {
 		log.Println("Add last part to queue: ", partNumber)
 		c.S3Uploadable <- partNumber
-		c.quit <- true
 	}
 
 	// Reset file
@@ -334,15 +332,19 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64, uploadLastPart bool
 	return newPartNumber, nil
 }
 
-func (c *Converter) UploadAndDeletePart() {
+func (c *Converter) UploadAndDeletePart(done, quit chan bool) {
+L:
 	for {
 		select {
 		case partNumber := <-c.S3Uploadable:
 			fileName := strconv.FormatInt(partNumber, 10)
 			f, err := os.Open(fileName)
 			if err != nil {
-				log.Print(err)
+				log.Println(err)
 				err = c.abortMultipartUpload()
+				if err != nil {
+					log.Println(err)
+				}
 			}
 			log.Println("Uploading Part: ", partNumber)
 			err = c.uploadPart(f, partNumber)
@@ -350,18 +352,22 @@ func (c *Converter) UploadAndDeletePart() {
 			if err != nil {
 				log.Print(err)
 				err = c.abortMultipartUpload()
-				return
+				break L
 			}
 
 			err = os.Remove(fileName)
 			if err != nil {
 				log.Print(err)
+				break L
 			}
-		case <-c.quit:
-			log.Println("Received Quit signal.")
-			return
+		case <-done:
+			log.Println("Received Done signal.")
+			break L
 		}
 	}
+
+	quit <- true
+
 }
 
 func (c *Converter) setCSVHeaders() ([]string, int, error) {
