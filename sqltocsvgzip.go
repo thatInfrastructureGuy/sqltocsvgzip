@@ -288,12 +288,14 @@ func (c *Converter) AddToQueue(f *os.File, partNumber int64) (newPartNumber int6
 		log.Printf("Part %v wrote bytes %v.\n", partNumber, len(buf))
 	}
 
-	if len(buf) >= minFileSize && partNumber > 1 {
+	if len(buf) >= minFileSize {
 		// Add previous part to queue
-		log.Println("Add part to queue: #", partNumber-1)
-		c.s3Uploadable <- &s3Obj{
-			partNumber: partNumber - 1,
-			buf:        c.gzipBuf,
+		if partNumber > 1 {
+			log.Println("Add part to queue: #", partNumber-1)
+			c.s3Uploadable <- &s3Obj{
+				partNumber: partNumber - 1,
+				buf:        c.gzipBuf,
+			}
 		}
 
 		c.gzipBuf = buf
