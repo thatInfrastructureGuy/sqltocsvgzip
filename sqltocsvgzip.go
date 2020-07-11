@@ -69,7 +69,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		}
 
 		// Upload Parts to S3
-		c.s3Uploadable = make(chan *s3Obj, c.S3UploadThreads)
+		c.s3Uploadable = make(chan *s3Obj, 1)
 
 		for i := 0; i < c.S3UploadThreads; i++ {
 			wg.Add(1)
