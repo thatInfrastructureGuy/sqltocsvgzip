@@ -69,7 +69,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 		}
 
 		// Upload Parts to S3
-		c.s3Uploadable = make(chan *s3Obj, 1)
+		c.s3Uploadable = make(chan *s3Obj, c.S3UploadThreads)
 
 		for i := 0; i < c.S3UploadThreads; i++ {
 			wg.Add(1)
@@ -96,9 +96,11 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 	}
 
 	if c.S3Upload {
-		// Complete S3 upload
 		wg.Wait()
 
+		// Sort completed parts
+		c.sortCompletedParts()
+		// Complete S3 upload
 		completeResponse, err := c.completeMultipartUpload()
 		if err != nil {
 			return err
