@@ -14,6 +14,12 @@ With sqltocsvgzip, you can do in a single step.
 * Default 6 goroutines with 180K data/goroutine
 * Optional single threaded execution.
 
+## Installation
+```go 
+go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.2
+```
+
+_Note: Please do not use master branch. Master branch may contain breaking changes. Use tags instead._
 
 ## Usage
 
