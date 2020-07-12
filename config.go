@@ -48,6 +48,19 @@ type Converter struct {
 	gzipBuf          []byte
 }
 
+// CsvPreprocessorFunc is a function type for preprocessing your CSV.
+// It takes the columns after they've been munged into strings but
+// before they've been passed into the CSV writer.
+//
+// Return an outputRow of false if you want the row skipped otherwise
+// return the processed Row slice as you want it written to the CSV.
+type CsvPreProcessorFunc func(row []string, columnNames []string) (outputRow bool, processedRow []string)
+
+// SetRowPreProcessor lets you specify a CsvPreprocessorFunc for this conversion
+func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
+	c.rowPreProcessor = processor
+}
+
 // New will return a Converter which will write your CSV however you like
 // but will allow you to set a bunch of non-default behaivour like overriding
 // headers or injecting a pre-processing step into your conversion

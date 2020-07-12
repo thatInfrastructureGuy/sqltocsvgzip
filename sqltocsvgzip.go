@@ -32,19 +32,6 @@ func UploadToS3(csvGzipFileName string, rows *sql.Rows) error {
 	return DefaultConfig(rows).WriteFile(csvGzipFileName)
 }
 
-// CsvPreprocessorFunc is a function type for preprocessing your CSV.
-// It takes the columns after they've been munged into strings but
-// before they've been passed into the CSV writer.
-//
-// Return an outputRow of false if you want the row skipped otherwise
-// return the processed Row slice as you want it written to the CSV.
-type CsvPreProcessorFunc func(row []string, columnNames []string) (outputRow bool, processedRow []string)
-
-// SetRowPreProcessor lets you specify a CsvPreprocessorFunc for this conversion
-func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
-	c.rowPreProcessor = processor
-}
-
 // WriteFile writes the csv.gzip to the filename specified, return an error if problem
 func (c *Converter) WriteFile(csvGzipFileName string) error {
 	f, err := os.Create(csvGzipFileName)
