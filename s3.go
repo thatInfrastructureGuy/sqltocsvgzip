@@ -3,8 +3,8 @@ package sqltocsvgzip
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
-	"os"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -118,7 +118,12 @@ func (c *Converter) uploadPart(partNumber int64, buf []byte, mu *sync.RWMutex) (
 	return nil
 }
 
-func (c *Converter) UploadObjectToS3(f *os.File) error {
+func (c *Converter) UploadObjectToS3(w io.Writer) error {
+	buf, ok := w.(*bytes.Buffer)
+	if !ok {
+		return fmt.Errorf("Expected buffer. Got %T", w)
+	}
+
 	fileType := "application/x-gzip"
 
 	// The session the S3 Uploader will use
@@ -135,7 +140,7 @@ func (c *Converter) UploadObjectToS3(f *os.File) error {
 		Key:         aws.String(c.S3Path),
 		ACL:         aws.String(c.S3Acl),
 		ContentType: aws.String(fileType),
-		Body:        f,
+		Body:        bytes.NewReader(buf.Bytes()),
 	})
 	if err != nil {
 		return err

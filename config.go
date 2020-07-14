@@ -12,7 +12,7 @@ const (
 	minFileSize = 5 * 1024 * 1024
 )
 
-type s3Obj struct {
+type obj struct {
 	partNumber int64
 	buf        []byte
 }
@@ -36,16 +36,16 @@ type Converter struct {
 	S3Acl                 string
 	S3Path                string
 	S3Upload              bool
-	S3UploadThreads       int
-	S3UploadMaxPartSize   int64
+	UploadThreads         int
+	UploadPartSize        int64
 
 	s3Svc            *s3.S3
 	s3Resp           *s3.CreateMultipartUploadOutput
-	s3Uploadable     chan *s3Obj
 	s3CompletedParts []*s3.CompletedPart
 	rows             *sql.Rows
 	rowPreProcessor  CsvPreProcessorFunc
-	gzipBuf          []byte
+	uploadQ          chan *obj
+	quit             chan bool
 }
 
 // CsvPreprocessorFunc is a function type for preprocessing your CSV.
@@ -70,37 +70,23 @@ func New(rows *sql.Rows) *Converter {
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        6,
-		GzipBatchPerGoroutine: 180000,
+		GzipGoroutines:        10,
+		GzipBatchPerGoroutine: 100000,
 	}
 }
 
-// DefaultConfig sets the following variables.
-//
-//		WriteHeaders:          true,
-//		Delimiter:             ',',
-//		CompressionLevel:      flate.DefaultCompression,
-//		GzipGoroutines:        6,
-//		GzipBatchPerGoroutine: 180000,
-//		S3Upload:              true,
-//      S3UploadThreads:       6,
-//		S3UploadMaxPartSize:   5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
-//		S3Bucket:              os.Getenv("S3_BUCKET"),
-//		S3Path:                os.Getenv("S3_PATH"),
-//		S3Region:              os.Getenv("S3_REGION"),
-//		S3Acl:                 os.Getenv("S3_ACL"),  // If empty, defaults to bucket-owner-full-control
-//
+// DefaultConfig sets the default values for Converter struct.
 func DefaultConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        6,
-		GzipBatchPerGoroutine: 180000,
+		GzipGoroutines:        10,
+		GzipBatchPerGoroutine: 100000,
 		S3Upload:              true,
-		S3UploadThreads:       6,
-		S3UploadMaxPartSize:   5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
+		UploadThreads:         6,
+		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
 		S3Bucket:              os.Getenv("S3_BUCKET"),
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),
