@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -35,7 +34,7 @@ func (c *Converter) createMultipartRequest() (err error) {
 		return err
 	}
 
-	log.Println("Created multipart upload request.")
+	c.writeLog(Info, fmt.Sprintf("Created multipart upload request."))
 	return nil
 }
 
@@ -59,7 +58,7 @@ func (c *Converter) createS3Session() error {
 }
 
 func (c *Converter) abortMultipartUpload() error {
-	log.Println("Aborting multipart upload for UploadId: " + *c.s3Resp.UploadId)
+	c.writeLog(Info, fmt.Sprintf("Aborting multipart upload for UploadId: %v"+*c.s3Resp.UploadId))
 	abortInput := &s3.AbortMultipartUploadInput{
 		Bucket:   c.s3Resp.Bucket,
 		Key:      c.s3Resp.Key,
@@ -70,7 +69,7 @@ func (c *Converter) abortMultipartUpload() error {
 }
 
 func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput, error) {
-	log.Println("Completing multipart upload for UploadId: " + *c.s3Resp.UploadId)
+	c.writeLog(Info, fmt.Sprintf("Completing multipart upload for UploadId: %v"+*c.s3Resp.UploadId))
 	completeInput := &s3.CompleteMultipartUploadInput{
 		Bucket:   c.s3Resp.Bucket,
 		Key:      c.s3Resp.Key,
@@ -95,17 +94,17 @@ func (c *Converter) uploadPart(partNumber int64, buf []byte, mu *sync.RWMutex) (
 	for tryNum <= maxRetries {
 		uploadResult, err := c.s3Svc.UploadPart(partInput)
 		if err != nil {
-			log.Println(err)
+			c.writeLog(Error, fmt.Sprintf(err.Error()))
 			if tryNum == maxRetries {
 				if aerr, ok := err.(awserr.Error); ok {
 					return aerr
 				}
 				return err
 			}
-			log.Println("Retrying to upload part: #", partNumber)
+			c.writeLog(Info, fmt.Sprintf("Retrying to upload part: #%v", partNumber))
 			tryNum++
 		} else {
-			log.Println("Uploaded part: #", partNumber)
+			c.writeLog(Info, fmt.Sprintf("Uploaded part: #%v", partNumber))
 			mu.Lock()
 			c.s3CompletedParts = append(c.s3CompletedParts, &s3.CompletedPart{
 				ETag:       uploadResult.ETag,
@@ -146,6 +145,6 @@ func (c *Converter) UploadObjectToS3(w io.Writer) error {
 		return err
 	}
 
-	log.Println(res.Location)
+	c.writeLog(Info, fmt.Sprintf(res.Location))
 	return nil
 }

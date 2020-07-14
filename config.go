@@ -17,10 +17,20 @@ type obj struct {
 	buf        []byte
 }
 
+type LogLevel int
+
+const (
+	Debug LogLevel = 4
+	Info  LogLevel = 3
+	Warn  LogLevel = 2
+	Error LogLevel = 1
+)
+
 // Converter does the actual work of converting the rows to CSV.
 // There are a few settings you can override if you want to do
 // some fancy stuff to your CSV.
 type Converter struct {
+	LogLevel              LogLevel
 	Headers               []string // Column headers to use (default is rows.Columns())
 	WriteHeaders          bool     // Flag to output headers in your CSV (default is true)
 	TimeFormat            string   // Format string for any time.Time values (default is time's default)
@@ -30,7 +40,6 @@ type Converter struct {
 	GzipGoroutines        int
 	GzipBatchPerGoroutine int
 	SingleThreaded        bool
-	Debug                 bool
 	S3Bucket              string
 	S3Region              string
 	S3Acl                 string
@@ -72,6 +81,7 @@ func New(rows *sql.Rows) *Converter {
 		CompressionLevel:      flate.DefaultCompression,
 		GzipGoroutines:        10,
 		GzipBatchPerGoroutine: 100000,
+		LogLevel:              Info,
 	}
 }
 
@@ -91,5 +101,6 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),
 		S3Acl:                 os.Getenv("S3_ACL"),
+		LogLevel:              Info,
 	}
 }

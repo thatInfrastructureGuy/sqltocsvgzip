@@ -28,9 +28,6 @@ func UploadToS3(rows *sql.Rows) error {
 
 // WriteFile writes the csv.gzip to the filename specified, return an error if problem
 func (c *Converter) Upload() error {
-	var buf bytes.Buffer
-	wg := sync.WaitGroup{}
-
 	if c.UploadPartSize < minFileSize {
 		return fmt.Errorf("UploadPartSize should be greater than %v\n", minFileSize)
 	}
@@ -46,16 +43,19 @@ func (c *Converter) Upload() error {
 		return err
 	}
 
-	// Upload Parts to S3
+	wg := sync.WaitGroup{}
+	buf := bytes.Buffer{}
 	c.uploadQ = make(chan *obj, c.UploadThreads)
+	c.quit = make(chan bool, 1)
 
+	// Upload Parts to S3
 	for i := 0; i < c.UploadThreads; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			err = c.UploadAndDeletePart()
 			if err != nil {
-				log.Println(err)
+				c.writeLog(Error, fmt.Sprintf(err.Error()))
 			}
 		}()
 	}
@@ -83,7 +83,7 @@ func (c *Converter) Upload() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Successfully uploaded file: %s\n", uploadPath)
+	c.writeLog(Info, fmt.Sprintf("Successfully uploaded file: %s\n", uploadPath))
 
 	return nil
 }
@@ -139,6 +139,13 @@ func (c *Converter) Write(w io.Writer) error {
 
 	// Iterate over sql rows
 	for c.rows.Next() {
+		select {
+		case <-c.quit:
+			return fmt.Errorf("Received quit signal. Exiting.")
+		default:
+			// Do nothing
+		}
+
 		if err = c.rows.Scan(valuePtrs...); err != nil {
 			return err
 		}
@@ -151,41 +158,34 @@ func (c *Converter) Write(w io.Writer) error {
 
 		if writeRow {
 			sqlRowBatch = append(sqlRowBatch, row)
+
+			// Write to CSV Buffer
 			if len(sqlRowBatch) >= c.SqlBatchSize {
 				countRows = countRows + int64(len(sqlRowBatch))
-				// Convert from sql to csv
-				// Writes to buffer
 				err = csvWriter.WriteAll(sqlRowBatch)
 				if err != nil {
 					return err
 				}
-				// Reset buffer
+				// Reset Slice
 				sqlRowBatch = sqlRowBatch[:0]
+			}
 
-				// Convert from csv to gzip
-				// Writes from buffer to underlying file
-				if csvBuffer.Len() >= 1.5*1024*1024 {
-					bytesWritten, err := zw.Write(csvBuffer.Bytes())
-					if err != nil {
-						return err
-					}
-					gzipBytes = gzipBytes + int64(bytesWritten)
-					// Reset buffer
-					csvBuffer.Reset()
+			// Convert from csv to gzip
+			// Writes from buffer to underlying file
+			if csvBuffer.Len() >= 1.5*1024*1024 {
+				bytesWritten, err := zw.Write(csvBuffer.Bytes())
+				if err != nil {
+					return err
 				}
+				gzipBytes = gzipBytes + int64(bytesWritten)
+
+				// Reset buffer
+				csvBuffer.Reset()
 			}
 
 			// Upload partially created file to S3
-			// If UploadtoS3 is set to true &&
 			// If size of the gzip file exceeds maxFileStorage
 			if c.S3Upload {
-				select {
-				case <-c.quit:
-					return fmt.Errorf("Received quit signal. Exiting.")
-				default:
-					// Do nothing
-				}
-
 				if gzipBytes >= c.UploadPartSize {
 					if partNumber == 10000 {
 						return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
@@ -197,6 +197,7 @@ func (c *Converter) Write(w io.Writer) error {
 					if err != nil {
 						return err
 					}
+
 					gzipBytes = 0
 				}
 			}
@@ -229,9 +230,7 @@ func (c *Converter) Write(w io.Writer) error {
 		partNumber++
 		if partNumber == 1 {
 			// Upload one time
-			if c.Debug {
-				log.Println("Gzip files < 5 MB are uploaded together without batching.")
-			}
+			c.writeLog(Debug, fmt.Sprintf("Gzip files < 5 MB are uploaded together without batching."))
 			err = c.UploadObjectToS3(w)
 			if err != nil {
 				return err
@@ -248,7 +247,7 @@ func (c *Converter) Write(w io.Writer) error {
 	}
 
 	// Log the total number of rows processed.
-	log.Println("Total number of sql rows processed: ", countRows)
+	c.writeLog(Info, fmt.Sprintf("Total number of sql rows processed: %v", countRows))
 
 	return nil
 }
@@ -264,9 +263,7 @@ func (c *Converter) AddToQueue(w io.Writer, partNumber int64) error {
 	}
 
 	// Add previous part to queue
-	if c.Debug {
-		log.Println("Add part to queue: #", partNumber)
-	}
+	c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", partNumber))
 	c.uploadQ <- &obj{
 		partNumber: partNumber,
 		buf:        buf.Bytes(),
@@ -281,14 +278,18 @@ func (c *Converter) UploadAndDeletePart() (err error) {
 	for s3obj := range c.uploadQ {
 		err = c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
 		if err != nil {
-			log.Println("Error occurred. Sending quit signal to writer.")
+			c.writeLog(Error, fmt.Sprintf("Error occurred. Sending quit signal to writer."))
 			c.quit <- true
 			c.abortMultipartUpload()
 			return err
 		}
 	}
-	if c.Debug {
-		log.Println("Received closed signal")
-	}
+	c.writeLog(Debug, fmt.Sprintf("Received closed signal"))
 	return
+}
+
+func (c *Converter) writeLog(logLevel LogLevel, logLine string) {
+	if logLevel >= c.LogLevel {
+		log.Println(logLine)
+	}
 }
