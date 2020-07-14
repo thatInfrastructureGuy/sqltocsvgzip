@@ -289,7 +289,7 @@ func (c *Converter) UploadAndDeletePart() (err error) {
 }
 
 func (c *Converter) writeLog(logLevel LogLevel, logLine string) {
-	if logLevel >= c.LogLevel {
+	if logLevel <= c.LogLevel {
 		log.Println(logLine)
 	}
 }

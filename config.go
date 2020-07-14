@@ -20,10 +20,10 @@ type obj struct {
 type LogLevel int
 
 const (
-	Debug LogLevel = 4
-	Info  LogLevel = 3
-	Warn  LogLevel = 2
 	Error LogLevel = 1
+	Warn  LogLevel = 2
+	Info  LogLevel = 3
+	Debug LogLevel = 4
 )
 
 // Converter does the actual work of converting the rows to CSV.
