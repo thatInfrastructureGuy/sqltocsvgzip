@@ -268,8 +268,7 @@ func (c *Converter) AddToQueue(w io.Writer, partNumber int64) error {
 	// Add part to queue
 	c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", partNumber))
 	tempBuf := make([]byte, buf.Len(), buf.Len())
-	bytesCopied := copy(tempBuf, buf.Bytes())
-	c.writeLog(Debug, fmt.Sprintf("Bytes copied: %v", bytesCopied))
+	_ = copy(tempBuf, buf.Bytes())
 
 	c.uploadQ <- &obj{
 		partNumber: partNumber,
