@@ -76,11 +76,15 @@ func (c *Converter) Upload() error {
 	if c.partNumber == 0 {
 		// Upload one time
 		c.writeLog(Info, fmt.Sprintf("Gzip file < 5 MB. Uploading without batching."))
+		err = c.abortMultipartUpload()
+		if err != nil {
+			return err
+		}
+
 		err = c.UploadObjectToS3(&buf)
 		if err != nil {
 			return err
 		}
-		c.abortMultipartUpload()
 		return nil
 	}
 
@@ -267,12 +271,12 @@ func (c *Converter) Write(w io.Writer) error {
 func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 	// Increament PartNumber
 	c.partNumber++
+	tmpSlice := make([]byte, c.gzipBuf.Len())
 
 	if buf.Len() >= c.UploadPartSize {
 		if c.partNumber > 1 {
 			// Add part to queue
-			c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber))
-			tmpSlice := make([]byte, c.gzipBuf.Len())
+			c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
 			copy(tmpSlice, c.gzipBuf.Bytes())
 			c.uploadQ <- &obj{
 				partNumber: c.partNumber - 1,
@@ -286,7 +290,8 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 		c.gzipBuf.Write(buf.Bytes())
 
 		// Add part to queue
-		c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber))
+		c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
+		copy(tmpSlice, c.gzipBuf.Bytes())
 		c.uploadQ <- &obj{
 			partNumber: c.partNumber - 1,
 			buf:        c.gzipBuf.Bytes(),
