@@ -271,12 +271,12 @@ func (c *Converter) Write(w io.Writer) error {
 func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 	// Increament PartNumber
 	c.partNumber++
-	tmpSlice := make([]byte, c.gzipBuf.Len())
 
 	if buf.Len() >= c.UploadPartSize {
 		if c.partNumber > 1 {
 			// Add part to queue
 			c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
+			tmpSlice := make([]byte, c.gzipBuf.Len())
 			copy(tmpSlice, c.gzipBuf.Bytes())
 			c.uploadQ <- &obj{
 				partNumber: c.partNumber - 1,
@@ -291,10 +291,11 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 
 		// Add part to queue
 		c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
+		tmpSlice := make([]byte, c.gzipBuf.Len())
 		copy(tmpSlice, c.gzipBuf.Bytes())
 		c.uploadQ <- &obj{
 			partNumber: c.partNumber - 1,
-			buf:        c.gzipBuf.Bytes(),
+			buf:        tmpSlice,
 		}
 
 		c.partNumber--
