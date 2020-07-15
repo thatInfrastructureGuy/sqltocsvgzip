@@ -122,7 +122,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(w io.Writer) error {
 	var countRows int64
-	var gzipBuffer *bytes.Buffer
+	gzipBuffer := &bytes.Buffer{}
 	writeRow := true
 
 	csvWriter, csvBuffer := c.getCSVWriter()
