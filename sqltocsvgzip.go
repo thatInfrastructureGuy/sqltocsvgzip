@@ -75,7 +75,7 @@ func (c *Converter) Upload() error {
 
 	if c.partNumber == 0 {
 		// Upload one time
-		c.writeLog(Info, "Gzip file < 5 MB. Uploading without batching.")
+		c.writeLog(Info, "Gzip file < 5 MB. Enable direct upload. Abort multipart upload.")
 		err = c.abortMultipartUpload()
 		if err != nil {
 			return err
