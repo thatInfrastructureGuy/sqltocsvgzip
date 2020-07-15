@@ -75,7 +75,7 @@ func (c *Converter) Upload() error {
 
 	if c.partNumber == 0 {
 		// Upload one time
-		c.writeLog(Debug, fmt.Sprintf("Gzip files < 5 MB are uploaded together without batching."))
+		c.writeLog(Info, fmt.Sprintf("Gzip file < 5 MB. Uploading without batching."))
 		err = c.UploadObjectToS3(&buf)
 		if err != nil {
 			return err
@@ -176,7 +176,7 @@ func (c *Converter) Write(w io.Writer) error {
 
 			// Write to CSV Buffer
 			if len(sqlRowBatch) >= c.SqlBatchSize {
-				c.writeLog(Debug, fmt.Sprintf("Batching at %v rows", len(sqlRowBatch)))
+				c.writeLog(Verbose, fmt.Sprintf("Batching at %v rows", len(sqlRowBatch)))
 				countRows = countRows + int64(len(sqlRowBatch))
 				err = csvWriter.WriteAll(sqlRowBatch)
 				if err != nil {
@@ -207,8 +207,8 @@ func (c *Converter) Write(w io.Writer) error {
 					return fmt.Errorf("Expected buffer. Got %T", w)
 				}
 
-				c.writeLog(Debug, fmt.Sprintf("gzipBuffer size: %v", gzipBuffer.Len()))
 				if gzipBuffer.Len() >= c.UploadPartSize {
+					c.writeLog(Debug, fmt.Sprintf("gzipBuffer size: %v", gzipBuffer.Len()))
 					if c.partNumber == 10000 {
 						return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
 					}
@@ -288,7 +288,7 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 		c.partNumber--
 	}
 
-	c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
+	c.writeLog(Verbose, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
 	buf.Reset()
 }
 
