@@ -46,7 +46,7 @@ type Converter struct {
 	S3Path                string
 	S3Upload              bool
 	UploadThreads         int
-	UploadPartSize        int64
+	UploadPartSize        int
 
 	s3Svc            *s3.S3
 	s3Resp           *s3.CreateMultipartUploadOutput
@@ -81,6 +81,7 @@ func New(rows *sql.Rows) *Converter {
 		CompressionLevel:      flate.DefaultCompression,
 		GzipGoroutines:        10,
 		GzipBatchPerGoroutine: 100000,
+		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 1 * 1024 * 1024 for pgzip
 		LogLevel:              Info,
 	}
 }
@@ -96,7 +97,7 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		GzipBatchPerGoroutine: 100000,
 		S3Upload:              true,
 		UploadThreads:         6,
-		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
+		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024 for s3 upload
 		S3Bucket:              os.Getenv("S3_BUCKET"),
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),

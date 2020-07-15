@@ -109,7 +109,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(w io.Writer) error {
-	var countRows, partNumber, gzipBytes int64
+	var countRows, partNumber int64
 	writeRow := true
 
 	csvWriter, csvBuffer := c.getCSVWriter()
@@ -176,23 +176,20 @@ func (c *Converter) Write(w io.Writer) error {
 
 			// Convert from csv to gzip
 			// Writes from buffer to underlying file
-			if csvBuffer.Len() >= 1.5*1024*1024 {
+			if csvBuffer.Len() >= c.UploadPartSize {
 				c.writeLog(Debug, fmt.Sprintf("Zipping when csv buffer size: %v", csvBuffer.Len()))
 				bytesWritten, err := zw.Write(csvBuffer.Bytes())
+				c.writeLog(Debug, fmt.Sprintf("Zipped bytes written: %v", bytesWritten))
 				if err != nil {
 					return err
 				}
-				gzipBytes = gzipBytes + int64(bytesWritten)
 
 				// Reset buffer
 				csvBuffer.Reset()
-			}
 
-			// Upload partially created file to S3
-			// If size of the gzip file exceeds maxFileStorage
-			if c.S3Upload {
-				if gzipBytes >= c.UploadPartSize {
-					c.writeLog(Debug, fmt.Sprintf("Gzip buffer size before adding to queue: %v", gzipBytes))
+				// Upload partially created file to S3
+				// If size of the gzip file exceeds maxFileStorage
+				if c.S3Upload {
 					if partNumber == 10000 {
 						return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
 					}
@@ -203,8 +200,6 @@ func (c *Converter) Write(w io.Writer) error {
 					if err != nil {
 						return err
 					}
-
-					gzipBytes = 0
 				}
 			}
 		}
@@ -253,7 +248,7 @@ func (c *Converter) Write(w io.Writer) error {
 	}
 
 	// Log the total number of rows processed.
-	c.writeLog(Info, fmt.Sprintf("Total number of rows processed (sql rows + headers row): %v", countRows))
+	c.writeLog(Info, fmt.Sprintf("Total rows processed (sql rows + headers row): %v", countRows))
 
 	return nil
 }
