@@ -262,7 +262,9 @@ func (c *Converter) AddToQueue(w io.Writer, partNumber int64) error {
 	}
 
 	if buf.Len() < minFileSize {
+		c.writeLog(Debug, fmt.Sprintf("Buffer with len %v and cap %v less than minFileSize %v", buf.Len(), buf.Cap(), minFileSize))
 		buf.Grow(minFileSize - buf.Len())
+		c.writeLog(Debug, fmt.Sprintf("Buffer with len %v and cap %v equals minFileSize %v", buf.Len(), buf.Cap(), minFileSize))
 	}
 
 	// Add part to queue
