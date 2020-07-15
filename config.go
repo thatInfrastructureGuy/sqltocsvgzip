@@ -1,6 +1,7 @@
 package sqltocsvgzip
 
 import (
+	"bytes"
 	"compress/flate"
 	"database/sql"
 	"os"
@@ -53,6 +54,7 @@ type Converter struct {
 	s3CompletedParts []*s3.CompletedPart
 	rows             *sql.Rows
 	rowPreProcessor  CsvPreProcessorFunc
+	gzipBuf          *bytes.Buffer
 	partNumber       int64
 	uploadQ          chan *obj
 	quit             chan bool
