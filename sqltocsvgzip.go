@@ -104,6 +104,8 @@ func (c *Converter) Upload() error {
 	if err != nil {
 		return err
 	}
+	log.Println(completeResponse.String())
+	log.Println(uploadPath)
 	c.writeLog(Info, "Successfully uploaded file: "+uploadPath)
 
 	return nil
