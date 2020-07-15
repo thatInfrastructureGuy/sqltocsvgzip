@@ -100,12 +100,11 @@ func (c *Converter) Upload() error {
 		}
 		return err
 	}
+
 	uploadPath, err := url.PathUnescape(completeResponse.String())
 	if err != nil {
 		return err
 	}
-	log.Println(completeResponse.String())
-	log.Println(uploadPath)
 	c.writeLog(Info, "Successfully uploaded file: "+uploadPath)
 
 	return nil

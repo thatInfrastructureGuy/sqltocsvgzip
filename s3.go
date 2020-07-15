@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/url"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -145,6 +146,10 @@ func (c *Converter) UploadObjectToS3(w io.Writer) error {
 		return err
 	}
 
-	c.writeLog(Info, res.Location)
+	uploadPath, err := url.PathUnescape(res.Location)
+	if err != nil {
+		return err
+	}
+	c.writeLog(Info, "Successfully uploaded file: "+uploadPath)
 	return nil
 }
