@@ -271,6 +271,7 @@ func (c *Converter) isReadyToBeUploaded(w io.Writer) (*bytes.Buffer, bool, error
 		return nil, false, fmt.Errorf("Expected buffer. Got %T", w)
 	}
 
+	c.writeLog(Debug, fmt.Sprintf("Buffer len %v should be greater than %v for upload.", buf.Len(), c.UploadPartSize))
 	if buf.Len() < c.UploadPartSize {
 		return buf, false, nil
 	}
