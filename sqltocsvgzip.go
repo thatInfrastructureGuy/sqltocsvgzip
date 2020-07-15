@@ -70,8 +70,8 @@ func (c *Converter) Upload() error {
 		return err
 	}
 
-	wg.Wait()
 	close(c.uploadQ)
+	wg.Wait()
 
 	if c.partNumber == 0 {
 		// Upload one time
@@ -89,6 +89,11 @@ func (c *Converter) Upload() error {
 	// Complete S3 upload
 	completeResponse, err := c.completeMultipartUpload()
 	if err != nil {
+		// Abort S3 Upload
+		awserr := c.abortMultipartUpload()
+		if awserr != nil {
+			return awserr
+		}
 		return err
 	}
 	uploadPath, err := url.PathUnescape(completeResponse.String())
