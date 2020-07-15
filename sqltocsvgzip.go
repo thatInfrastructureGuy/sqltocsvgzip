@@ -122,7 +122,6 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(w io.Writer) error {
 	var countRows int64
-	gzipBuffer := make([]byte, 0, c.UploadPartSize)
 	writeRow := true
 
 	csvWriter, csvBuffer := c.getCSVWriter()
@@ -203,21 +202,19 @@ func (c *Converter) Write(w io.Writer) error {
 			// Upload partially created file to S3
 			// If size of the gzip file exceeds maxFileStorage
 			if c.S3Upload {
-				tmpBuf, ok := w.(*bytes.Buffer)
+				gzipBuffer, ok := w.(*bytes.Buffer)
 				if !ok {
 					return fmt.Errorf("Expected buffer. Got %T", w)
 				}
-				gzipBuffer = append(gzipBuffer, tmpBuf.Bytes()...)
-				tmpBuf.Reset()
 
-				c.writeLog(Debug, fmt.Sprintf("gzipBuffer size: %v", len(gzipBuffer)))
-				if len(gzipBuffer) >= c.UploadPartSize {
+				c.writeLog(Debug, fmt.Sprintf("gzipBuffer size: %v", gzipBuffer.Len()))
+				if gzipBuffer.Len() >= c.UploadPartSize {
 					if c.partNumber == 10000 {
 						return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
 					}
 
 					// Add to Queue
-					c.AddToQueue(bytes.NewBuffer(gzipBuffer))
+					c.AddToQueue(gzipBuffer)
 				}
 			}
 		}
@@ -252,11 +249,11 @@ func (c *Converter) Write(w io.Writer) error {
 			return nil
 		}
 		// Add to Queue for multipart upload
-		tmpBuffer, ok := w.(*bytes.Buffer)
+		gzipBuffer, ok := w.(*bytes.Buffer)
 		if !ok {
 			return fmt.Errorf("Expected buffer. Got %T", w)
 		}
-		c.AddToQueue(tmpBuffer)
+		c.AddToQueue(gzipBuffer)
 	}
 
 	return nil
