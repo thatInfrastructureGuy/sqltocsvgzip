@@ -164,6 +164,7 @@ func (c *Converter) Write(w io.Writer) error {
 
 			// Write to CSV Buffer
 			if len(sqlRowBatch) >= c.SqlBatchSize {
+				c.writeLog(Debug, fmt.Sprintf("Batching at %v rows", len(sqlRowBatch)))
 				countRows = countRows + int64(len(sqlRowBatch))
 				err = csvWriter.WriteAll(sqlRowBatch)
 				if err != nil {
@@ -176,6 +177,7 @@ func (c *Converter) Write(w io.Writer) error {
 			// Convert from csv to gzip
 			// Writes from buffer to underlying file
 			if csvBuffer.Len() >= 1.5*1024*1024 {
+				c.writeLog(Debug, fmt.Sprintf("Zipping when csv buffer size: %v", csvBuffer.Len()))
 				bytesWritten, err := zw.Write(csvBuffer.Bytes())
 				if err != nil {
 					return err
@@ -190,6 +192,7 @@ func (c *Converter) Write(w io.Writer) error {
 			// If size of the gzip file exceeds maxFileStorage
 			if c.S3Upload {
 				if gzipBytes >= c.UploadPartSize {
+					c.writeLog(Debug, fmt.Sprintf("Gzip buffer size before adding to queue: %v", gzipBytes))
 					if partNumber == 10000 {
 						return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
 					}
@@ -250,7 +253,7 @@ func (c *Converter) Write(w io.Writer) error {
 	}
 
 	// Log the total number of rows processed.
-	c.writeLog(Info, fmt.Sprintf("Total number of sql rows processed: %v", countRows))
+	c.writeLog(Info, fmt.Sprintf("Total number of rows processed (sql rows + headers row): %v", countRows))
 
 	return nil
 }
