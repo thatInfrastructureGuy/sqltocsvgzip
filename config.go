@@ -53,6 +53,7 @@ type Converter struct {
 	s3CompletedParts []*s3.CompletedPart
 	rows             *sql.Rows
 	rowPreProcessor  CsvPreProcessorFunc
+	partNumber       int64
 	uploadQ          chan *obj
 	quit             chan bool
 }

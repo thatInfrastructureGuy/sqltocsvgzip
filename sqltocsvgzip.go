@@ -71,6 +71,18 @@ func (c *Converter) Upload() error {
 	}
 
 	wg.Wait()
+	close(c.uploadQ)
+
+	if c.partNumber == 0 {
+		// Upload one time
+		c.writeLog(Debug, fmt.Sprintf("Gzip files < 5 MB are uploaded together without batching."))
+		err = c.UploadObjectToS3(&buf)
+		if err != nil {
+			return err
+		}
+		c.abortMultipartUpload()
+		return nil
+	}
 
 	// Sort completed parts
 	c.sortCompletedParts()
@@ -109,7 +121,7 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(w io.Writer) error {
-	var countRows, partNumber int64
+	var countRows int64
 	writeRow := true
 
 	csvWriter, csvBuffer := c.getCSVWriter()
@@ -177,9 +189,8 @@ func (c *Converter) Write(w io.Writer) error {
 			// Convert from csv to gzip
 			// Writes from buffer to underlying file
 			if csvBuffer.Len() >= c.UploadPartSize {
-				c.writeLog(Debug, fmt.Sprintf("Zipping when csv buffer size: %v", csvBuffer.Len()))
 				bytesWritten, err := zw.Write(csvBuffer.Bytes())
-				c.writeLog(Debug, fmt.Sprintf("Zipped bytes written: %v", bytesWritten))
+				c.writeLog(Debug, fmt.Sprintf("Csv to gzip bytes written: %v", bytesWritten))
 				if err != nil {
 					return err
 				}
@@ -187,16 +198,21 @@ func (c *Converter) Write(w io.Writer) error {
 				// Reset buffer
 				csvBuffer.Reset()
 
-				// Upload partially created file to S3
-				// If size of the gzip file exceeds maxFileStorage
-				if c.S3Upload {
-					if partNumber == 10000 {
-						return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
-					}
-					// Increament PartNumber
-					partNumber++
+			}
+			// Upload partially created file to S3
+			// If size of the gzip file exceeds maxFileStorage
+			if c.S3Upload {
+				if c.partNumber == 10000 {
+					return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
+				}
+				// Check if buf is ready.
+				buf, isReady, err := c.isReadyToBeUploaded(w)
+				if err != nil {
+					return err
+				}
+				if isReady {
 					// Add to Queue
-					c.AddToQueue(w, partNumber)
+					c.AddToQueue(buf)
 					if err != nil {
 						return err
 					}
@@ -225,53 +241,53 @@ func (c *Converter) Write(w io.Writer) error {
 	//Wipe the buffer
 	csvBuffer.Reset()
 
-	// Upload last part of the file to S3
-	if c.S3Upload {
-		// Increament PartNumber
-		partNumber++
-		if partNumber == 1 {
-			// Upload one time
-			c.writeLog(Debug, fmt.Sprintf("Gzip files < 5 MB are uploaded together without batching."))
-			err = c.UploadObjectToS3(w)
-			if err != nil {
-				return err
-			}
-			c.abortMultipartUpload()
-		} else {
-			// Add to Queue for multipart upload
-			c.AddToQueue(w, partNumber)
-			if err != nil {
-				return err
-			}
-		}
-		close(c.uploadQ)
-	}
-
 	// Log the total number of rows processed.
 	c.writeLog(Info, fmt.Sprintf("Total rows processed (sql rows + headers row): %v", countRows))
+
+	// Upload last part of the file to S3
+	if c.S3Upload {
+		if c.partNumber == 0 {
+			return nil
+		}
+		// Add to Queue for multipart upload
+		buf, isReady, err := c.isReadyToBeUploaded(w)
+		if !isReady {
+			c.writeLog(Debug, fmt.Sprintf("Buffer with len %v and cap %v less than minFileSize %v", buf.Len(), buf.Cap(), minFileSize))
+			buf.Grow(c.UploadPartSize - buf.Len())
+			c.writeLog(Debug, fmt.Sprintf("Buffer with len %v and cap %v equals minFileSize %v", buf.Len(), buf.Cap(), minFileSize))
+		}
+		c.AddToQueue(buf)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
-func (c *Converter) AddToQueue(w io.Writer, partNumber int64) error {
+func (c *Converter) isReadyToBeUploaded(w io.Writer) (*bytes.Buffer, bool, error) {
 	buf, ok := w.(*bytes.Buffer)
 	if !ok {
-		return fmt.Errorf("Expected buffer. Got %T", w)
+		return nil, false, fmt.Errorf("Expected buffer. Got %T", w)
 	}
 
-	if buf.Len() < minFileSize {
-		c.writeLog(Debug, fmt.Sprintf("Buffer with len %v and cap %v less than minFileSize %v", buf.Len(), buf.Cap(), minFileSize))
-		buf.Grow(minFileSize - buf.Len())
-		c.writeLog(Debug, fmt.Sprintf("Buffer with len %v and cap %v equals minFileSize %v", buf.Len(), buf.Cap(), minFileSize))
+	if buf.Len() < c.UploadPartSize {
+		return buf, false, nil
 	}
 
+	return buf, true, nil
+}
+
+func (c *Converter) AddToQueue(buf *bytes.Buffer) error {
+	// Increament PartNumber
+	c.partNumber++
 	// Add part to queue
-	c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", partNumber))
+	c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber))
 	tempBuf := make([]byte, buf.Len(), buf.Len())
 	_ = copy(tempBuf, buf.Bytes())
 
 	c.uploadQ <- &obj{
-		partNumber: partNumber,
+		partNumber: c.partNumber,
 		buf:        tempBuf,
 	}
 	buf.Reset()
