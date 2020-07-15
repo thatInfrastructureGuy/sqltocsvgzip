@@ -218,9 +218,6 @@ func (c *Converter) Write(w io.Writer) error {
 
 					// Add to Queue
 					c.AddToQueue(bytes.NewBuffer(gzipBuffer))
-					if err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -279,7 +276,6 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 			}
 		}
 
-		c.gzipBuf.Reset()
 		c.gzipBuf = buf
 	} else {
 		c.writeLog(Debug, fmt.Sprintf("Buffer len %v should be greater than %v for upload.", buf.Len(), c.UploadPartSize))
@@ -295,6 +291,7 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 		c.partNumber--
 	}
 
+	c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
 	buf.Reset()
 }
 
