@@ -96,6 +96,9 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 	}
 	defer f.Close()
 
+	// Explicitely unset s3 upload
+	c.S3Upload = false
+
 	err = c.Write(f)
 	if err != nil {
 		return err
@@ -262,11 +265,15 @@ func (c *Converter) AddToQueue(w io.Writer, partNumber int64) error {
 		buf.Grow(minFileSize - buf.Len())
 	}
 
-	// Add previous part to queue
+	// Add part to queue
 	c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", partNumber))
+	tempBuf := make([]byte, buf.Len(), buf.Len())
+	bytesCopied := copy(tempBuf, buf.Bytes())
+	c.writeLog(Debug, fmt.Sprintf("Bytes copied: %v", bytesCopied))
+
 	c.uploadQ <- &obj{
 		partNumber: partNumber,
-		buf:        buf.Bytes(),
+		buf:        tempBuf,
 	}
 	buf.Reset()
 
