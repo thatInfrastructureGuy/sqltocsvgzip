@@ -34,7 +34,7 @@ func (c *Converter) createMultipartRequest() (err error) {
 		return err
 	}
 
-	c.writeLog(Info, fmt.Sprintf("Created multipart upload request."))
+	c.writeLog(Info, "Created multipart upload request.")
 	return nil
 }
 
@@ -58,7 +58,7 @@ func (c *Converter) createS3Session() error {
 }
 
 func (c *Converter) abortMultipartUpload() error {
-	c.writeLog(Info, fmt.Sprintf("Aborting multipart upload for UploadId: %s"+aws.StringValue(c.s3Resp.UploadId)))
+	c.writeLog(Info, "Aborting multipart upload for UploadId: "+aws.StringValue(c.s3Resp.UploadId))
 	abortInput := &s3.AbortMultipartUploadInput{
 		Bucket:   c.s3Resp.Bucket,
 		Key:      c.s3Resp.Key,
@@ -69,7 +69,7 @@ func (c *Converter) abortMultipartUpload() error {
 }
 
 func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput, error) {
-	c.writeLog(Info, fmt.Sprintf("Completing multipart upload for UploadId: %s"+aws.StringValue(c.s3Resp.UploadId)))
+	c.writeLog(Info, "Completing multipart upload for UploadId: "+aws.StringValue(c.s3Resp.UploadId))
 	completeInput := &s3.CompleteMultipartUploadInput{
 		Bucket:   c.s3Resp.Bucket,
 		Key:      c.s3Resp.Key,
@@ -94,7 +94,7 @@ func (c *Converter) uploadPart(partNumber int64, buf []byte, mu *sync.RWMutex) (
 	for tryNum <= maxRetries {
 		uploadResult, err := c.s3Svc.UploadPart(partInput)
 		if err != nil {
-			c.writeLog(Error, fmt.Sprintf(err.Error()))
+			c.writeLog(Error, err.Error())
 			if tryNum == maxRetries {
 				if aerr, ok := err.(awserr.Error); ok {
 					return aerr
@@ -145,6 +145,6 @@ func (c *Converter) UploadObjectToS3(w io.Writer) error {
 		return err
 	}
 
-	c.writeLog(Info, fmt.Sprintf(res.Location))
+	c.writeLog(Info, res.Location)
 	return nil
 }

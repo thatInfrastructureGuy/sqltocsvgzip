@@ -55,7 +55,7 @@ func (c *Converter) Upload() error {
 			defer wg.Done()
 			err = c.UploadAndDeletePart()
 			if err != nil {
-				c.writeLog(Error, fmt.Sprintf(err.Error()))
+				c.writeLog(Error, err.Error())
 			}
 		}()
 	}
@@ -75,7 +75,7 @@ func (c *Converter) Upload() error {
 
 	if c.partNumber == 0 {
 		// Upload one time
-		c.writeLog(Info, fmt.Sprintf("Gzip file < 5 MB. Uploading without batching."))
+		c.writeLog(Info, "Gzip file < 5 MB. Uploading without batching.")
 		err = c.abortMultipartUpload()
 		if err != nil {
 			return err
@@ -104,7 +104,7 @@ func (c *Converter) Upload() error {
 	if err != nil {
 		return err
 	}
-	c.writeLog(Info, fmt.Sprintf("Successfully uploaded file: %s\n", uploadPath))
+	c.writeLog(Info, "Successfully uploaded file: "+uploadPath)
 
 	return nil
 }
@@ -310,13 +310,13 @@ func (c *Converter) UploadAndDeletePart() (err error) {
 	for s3obj := range c.uploadQ {
 		err = c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
 		if err != nil {
-			c.writeLog(Error, fmt.Sprintf("Error occurred. Sending quit signal to writer."))
+			c.writeLog(Error, "Error occurred. Sending quit signal to writer.")
 			c.quit <- true
 			c.abortMultipartUpload()
 			return err
 		}
 	}
-	c.writeLog(Debug, fmt.Sprintf("Received closed signal"))
+	c.writeLog(Debug, "Received closed signal")
 	return
 }
 
