@@ -1,27 +1,34 @@
 # sqltocsvgzip [![Build Status](https://travis-ci.org/thatinfrastructureguy/sqltocsvgzip.svg?branch=master)](https://travis-ci.org/thatinfrastructureguy/sqltocsvgzip)
 
-A library designed to convert sql.Rows result from a query into a CSV.GZIP file. Normally creating a gzip file from sql is a multi-step process:
-
-```
-retrive sql rows ->  create csv file -> convert to gzip -> remove csv file
-```
-
-With sqltocsvgzip, you can do in a single step.
+A library designed to convert sql.Rows result from a query into a CSV.GZIP file and/or upload to AWS S3.
 
 ## Features
 * Multi-threaded Gzip compression
-* ~2Mb default buffer size.
-* Default 6 goroutines with 180K data/goroutine
-* Optional single threaded execution.
+* One liner:  `sql -> csv -> gzip -> S3` process
+* Multipart S3 with retries for resiliency
+* No writable disk required when uploading to S3.
+* Consistent memory, cpu and network usage whether your database has 1 Million or 1 Trillion records.
 
-## Installation
+### Defaults
+* 4096 rows of default sql batch.
+* ~5Mb default csv buffer size.
+* ~5Mb default pgzip buffer size.
+* pgzip: Default 10 goroutines with 100K data/goroutine
+* UploadtoS3: Default 6 concurrent uploads.
+
+### Caveats
+* Maximum of 10000 part uploads are allowed by AWS. Hence, (5Mb x 10000) `50Gb` of gzipped data is supported by default settings.
+* Increase buffer size if you want to reduce parts or have more than 50Gb of gzipped data.
+* Currently only supports upload to AWS S3 API compatible storage.
+
+### Installation
 ```go 
-go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.2
+go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.4
 ```
 
 _Note: Please do not use master branch. Master branch may contain breaking changes. Use tags instead._
 
-## Usage
+### Usage
 
 Importing the package
 
@@ -33,7 +40,7 @@ import (
 )
 ```
 
-Dumping a query to a file
+1. Dumping a query to a file
 
 ```go
 rows, _ := db.Query("SELECT * FROM users WHERE something=72")
@@ -44,7 +51,37 @@ if err != nil {
 }
 ```
 
-Return a query as a GZIP download on the world wide web
+2. Upload to AWS S3 with env vars
+
+```go
+rows, _ := db.Query("SELECT * FROM users WHERE something=72")
+
+// UploadToS3 looks for the followinging environment variables.
+// Required: S3_BUCKET, S3_PATH, S3_REGION
+// Optional: S3_ACL (default => bucket-owner-full-control)
+err := sqltocsvgzip.UploadToS3(rows)
+if err != nil {
+    panic(err)
+}
+```
+
+3. Upload to AWS S3 without environment variables
+
+```go
+rows, _ := db.Query("SELECT * FROM users WHERE something=72")
+
+config := sqltocsvgzip.DefaultConfig(rows)
+config.S3Bucket = "mybucket"
+config.S3Path = "/myfolder/file.csv.gzip"
+config.S3Region = "us-west-1"
+
+err := sqltocsvgzip.Upload()
+if err != nil {
+    panic(err)
+}
+```
+
+4. Return a query as a GZIP download on the world wide web
 
 ```go
 http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +101,7 @@ http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 http.ListenAndServe(":8080", nil)
 ```
 
-`Write` and `WriteFile` should do cover the common cases by the power of _Sensible Defaults™_ but if you need more flexibility you can get an instance of a `Converter` and fiddle with a few settings.
+If you need more flexibility you can get an instance of a `Converter` and fiddle with a few settings.
 
 ```go
 rows, _ := db.Query("SELECT * FROM users WHERE something=72")
