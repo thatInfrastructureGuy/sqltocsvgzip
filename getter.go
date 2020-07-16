@@ -9,38 +9,17 @@ import (
 
 // getSqlBatchSize gets the size of rows to be retrieved.
 // This batch is worked upon entirely before flushing to disk.
-func (c *Converter) getSqlBatchSize(totalColumns int) int {
+func (c *Converter) getSqlBatchSize(totalColumns int) {
 	// Use sqlBatchSize set by user
 	if c.SqlBatchSize != 0 {
-		return c.SqlBatchSize
+		return
 	}
 
 	// Default to 4096
 	c.SqlBatchSize = 4096
-
-	// Use Default value when Single thread.
-	if c.SingleThreaded {
-		return c.SqlBatchSize
-	}
-
-	// If Multi-threaded, then block size should be atleast 1Mb = 1048576 bytes
-	// See https://github.com/klauspost/pgzip
-
-	// (String X SqlBatchSize X TotalColumns) > 1048576
-	// String = 16 bytes
-	// (SqlBatchSize X TotalColumns) > 65536
-
-	for (c.SqlBatchSize * totalColumns) <= 65536 {
-		c.SqlBatchSize = c.SqlBatchSize * 2
-	}
-
-	// We aim for 1.5 MB - 2 MB to be on a safe side
-	c.SqlBatchSize = c.SqlBatchSize * 2
-
-	return c.SqlBatchSize
 }
 
-func (c *Converter) selectCompressionMethod(writer io.Writer) (io.WriteCloser, error) {
+func (c *Converter) getGzipWriter(writer io.Writer) (io.WriteCloser, error) {
 	// Use gzip if single threaded
 	if c.SingleThreaded {
 		zw, err := gzip.NewWriterLevel(writer, c.CompressionLevel)

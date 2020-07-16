@@ -3,8 +3,8 @@ package sqltocsvgzip
 import (
 	"bytes"
 	"fmt"
-	"log"
-	"os"
+	"io"
+	"net/url"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -35,7 +35,7 @@ func (c *Converter) createMultipartRequest() (err error) {
 		return err
 	}
 
-	log.Println("Created multipart upload request.")
+	c.writeLog(Info, "Created multipart upload request.")
 	return nil
 }
 
@@ -59,7 +59,7 @@ func (c *Converter) createS3Session() error {
 }
 
 func (c *Converter) abortMultipartUpload() error {
-	log.Println("Aborting multipart upload for UploadId: " + *c.s3Resp.UploadId)
+	c.writeLog(Info, "Aborting multipart upload for UploadId: "+aws.StringValue(c.s3Resp.UploadId))
 	abortInput := &s3.AbortMultipartUploadInput{
 		Bucket:   c.s3Resp.Bucket,
 		Key:      c.s3Resp.Key,
@@ -70,7 +70,7 @@ func (c *Converter) abortMultipartUpload() error {
 }
 
 func (c *Converter) completeMultipartUpload() (*s3.CompleteMultipartUploadOutput, error) {
-	log.Println("Completing multipart upload for UploadId: " + *c.s3Resp.UploadId)
+	c.writeLog(Info, "Completing multipart upload for UploadId: "+aws.StringValue(c.s3Resp.UploadId))
 	completeInput := &s3.CompleteMultipartUploadInput{
 		Bucket:   c.s3Resp.Bucket,
 		Key:      c.s3Resp.Key,
@@ -95,17 +95,17 @@ func (c *Converter) uploadPart(partNumber int64, buf []byte, mu *sync.RWMutex) (
 	for tryNum <= maxRetries {
 		uploadResult, err := c.s3Svc.UploadPart(partInput)
 		if err != nil {
-			log.Println(err)
+			c.writeLog(Error, err.Error())
 			if tryNum == maxRetries {
 				if aerr, ok := err.(awserr.Error); ok {
 					return aerr
 				}
 				return err
 			}
-			log.Println("Retrying to upload part: #", partNumber)
+			c.writeLog(Info, fmt.Sprintf("Retrying to upload part: #%v", partNumber))
 			tryNum++
 		} else {
-			log.Println("Uploaded part: #", partNumber)
+			c.writeLog(Info, fmt.Sprintf("Uploaded part: #%v", partNumber))
 			mu.Lock()
 			c.s3CompletedParts = append(c.s3CompletedParts, &s3.CompletedPart{
 				ETag:       uploadResult.ETag,
@@ -118,7 +118,12 @@ func (c *Converter) uploadPart(partNumber int64, buf []byte, mu *sync.RWMutex) (
 	return nil
 }
 
-func (c *Converter) UploadObjectToS3(f *os.File) error {
+func (c *Converter) UploadObjectToS3(w io.Writer) error {
+	buf, ok := w.(*bytes.Buffer)
+	if !ok {
+		return fmt.Errorf("Expected buffer. Got %T", w)
+	}
+
 	fileType := "application/x-gzip"
 
 	// The session the S3 Uploader will use
@@ -135,12 +140,16 @@ func (c *Converter) UploadObjectToS3(f *os.File) error {
 		Key:         aws.String(c.S3Path),
 		ACL:         aws.String(c.S3Acl),
 		ContentType: aws.String(fileType),
-		Body:        f,
+		Body:        bytes.NewReader(buf.Bytes()),
 	})
 	if err != nil {
 		return err
 	}
 
-	log.Println(res.Location)
+	uploadPath, err := url.PathUnescape(res.Location)
+	if err != nil {
+		return err
+	}
+	c.writeLog(Info, "Successfully uploaded file: "+uploadPath)
 	return nil
 }

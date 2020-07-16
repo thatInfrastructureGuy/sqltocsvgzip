@@ -1,6 +1,7 @@
 package sqltocsvgzip
 
 import (
+	"bytes"
 	"compress/flate"
 	"database/sql"
 	"os"
@@ -12,15 +13,26 @@ const (
 	minFileSize = 5 * 1024 * 1024
 )
 
-type s3Obj struct {
+type obj struct {
 	partNumber int64
 	buf        []byte
 }
+
+type LogLevel int
+
+const (
+	Error   LogLevel = 1
+	Warn    LogLevel = 2
+	Info    LogLevel = 3
+	Debug   LogLevel = 4
+	Verbose LogLevel = 5
+)
 
 // Converter does the actual work of converting the rows to CSV.
 // There are a few settings you can override if you want to do
 // some fancy stuff to your CSV.
 type Converter struct {
+	LogLevel              LogLevel
 	Headers               []string // Column headers to use (default is rows.Columns())
 	WriteHeaders          bool     // Flag to output headers in your CSV (default is true)
 	TimeFormat            string   // Format string for any time.Time values (default is time's default)
@@ -30,22 +42,23 @@ type Converter struct {
 	GzipGoroutines        int
 	GzipBatchPerGoroutine int
 	SingleThreaded        bool
-	Debug                 bool
 	S3Bucket              string
 	S3Region              string
 	S3Acl                 string
 	S3Path                string
 	S3Upload              bool
-	S3UploadThreads       int
-	S3UploadMaxPartSize   int64
+	UploadThreads         int
+	UploadPartSize        int
 
 	s3Svc            *s3.S3
 	s3Resp           *s3.CreateMultipartUploadOutput
-	s3Uploadable     chan *s3Obj
 	s3CompletedParts []*s3.CompletedPart
 	rows             *sql.Rows
 	rowPreProcessor  CsvPreProcessorFunc
-	gzipBuf          []byte
+	gzipBuf          *bytes.Buffer
+	partNumber       int64
+	uploadQ          chan *obj
+	quit             chan bool
 }
 
 // CsvPreprocessorFunc is a function type for preprocessing your CSV.
@@ -70,40 +83,29 @@ func New(rows *sql.Rows) *Converter {
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        6,
-		GzipBatchPerGoroutine: 180000,
+		GzipGoroutines:        10,
+		GzipBatchPerGoroutine: 100000,
+		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 1 * 1024 * 1024 for pgzip
+		LogLevel:              Info,
 	}
 }
 
-// DefaultConfig sets the following variables.
-//
-//		WriteHeaders:          true,
-//		Delimiter:             ',',
-//		CompressionLevel:      flate.DefaultCompression,
-//		GzipGoroutines:        6,
-//		GzipBatchPerGoroutine: 180000,
-//		S3Upload:              true,
-//      S3UploadThreads:       6,
-//		S3UploadMaxPartSize:   5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
-//		S3Bucket:              os.Getenv("S3_BUCKET"),
-//		S3Path:                os.Getenv("S3_PATH"),
-//		S3Region:              os.Getenv("S3_REGION"),
-//		S3Acl:                 os.Getenv("S3_ACL"),  // If empty, defaults to bucket-owner-full-control
-//
+// DefaultConfig sets the default values for Converter struct.
 func DefaultConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        6,
-		GzipBatchPerGoroutine: 180000,
+		GzipGoroutines:        10,
+		GzipBatchPerGoroutine: 100000,
 		S3Upload:              true,
-		S3UploadThreads:       6,
-		S3UploadMaxPartSize:   5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024
+		UploadThreads:         6,
+		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024 for s3 upload
 		S3Bucket:              os.Getenv("S3_BUCKET"),
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),
 		S3Acl:                 os.Getenv("S3_ACL"),
+		LogLevel:              Info,
 	}
 }

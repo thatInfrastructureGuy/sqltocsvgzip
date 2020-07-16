@@ -1,9 +1,26 @@
 package sqltocsvgzip
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
 	"time"
 )
+
+func (c *Converter) getCSVWriter() (*csv.Writer, *bytes.Buffer) {
+	// Same size as sqlRowBatch
+	var csvBuffer bytes.Buffer
+
+	// CSV writer to csvBuffer
+	csvWriter := csv.NewWriter(&csvBuffer)
+
+	// Set delimiter
+	if c.Delimiter != '\x00' {
+		csvWriter.Comma = c.Delimiter
+	}
+
+	return csvWriter, &csvBuffer
+}
 
 func (c *Converter) setCSVHeaders() ([]string, int, error) {
 	var headers []string
