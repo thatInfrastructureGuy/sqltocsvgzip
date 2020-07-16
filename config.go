@@ -5,6 +5,7 @@ import (
 	"compress/flate"
 	"database/sql"
 	"os"
+	"runtime"
 
 	"github.com/aws/aws-sdk-go/service/s3"
 )
@@ -83,8 +84,8 @@ func New(rows *sql.Rows) *Converter {
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        10,
-		GzipBatchPerGoroutine: 100000,
+		GzipGoroutines:        runtime.GOMAXPROCS(0),
+		GzipBatchPerGoroutine: 1 * 1024 * 1024,
 		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 1 * 1024 * 1024 for pgzip
 		LogLevel:              Info,
 	}
@@ -97,8 +98,8 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        10,
-		GzipBatchPerGoroutine: 100000,
+		GzipGoroutines:        runtime.GOMAXPROCS(0),
+		GzipBatchPerGoroutine: 1 * 1024 * 1024,
 		S3Upload:              true,
 		UploadThreads:         6,
 		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024 for s3 upload
