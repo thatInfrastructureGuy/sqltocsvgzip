@@ -277,12 +277,12 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 		if c.partNumber > 1 {
 			// Add part to queue
 			c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
-			tmpSlice := make([]byte, c.gzipBuf.Len())
-			copy(tmpSlice, c.gzipBuf.Bytes())
-			c.uploadQ <- &obj{
+			partObj := obj{
 				partNumber: c.partNumber - 1,
-				buf:        tmpSlice,
+				buf:        make([]byte, c.gzipBuf.Len()),
 			}
+			copy(partObj.buf, c.gzipBuf.Bytes())
+			c.uploadQ <- &partObj
 		}
 
 		c.gzipBuf = buf
@@ -292,12 +292,12 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 
 		// Add part to queue
 		c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
-		tmpSlice := make([]byte, c.gzipBuf.Len())
-		copy(tmpSlice, c.gzipBuf.Bytes())
-		c.uploadQ <- &obj{
+		partObj := obj{
 			partNumber: c.partNumber - 1,
-			buf:        tmpSlice,
+			buf:        make([]byte, c.gzipBuf.Len()),
 		}
+		copy(partObj.buf, c.gzipBuf.Bytes())
+		c.uploadQ <- &partObj
 
 		c.partNumber--
 	}
