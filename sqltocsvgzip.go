@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"time"
 )
 
 // WriteFile will write a CSV.GZIP file to the file name specified (with headers)
@@ -224,7 +225,10 @@ func (c *Converter) Write(w io.Writer) error {
 					}
 
 					// Add to Queue
+					c.writeLog(Debug, fmt.Sprintf("Orig buf:  %v", gzipBuffer.Len()))
 					c.AddToQueue(gzipBuffer)
+					c.writeLog(Debug, fmt.Sprintf("Orig buf:  %v", gzipBuffer.Len()))
+					time.Sleep(5 * time.Second)
 				}
 			}
 		}
@@ -305,7 +309,9 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 	}
 
 	c.writeLog(Verbose, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
+	c.writeLog(Debug, fmt.Sprintf("Orig buf:  %v at partNumber: %v", buf.Len(), c.partNumber))
 	buf.Reset()
+	c.writeLog(Debug, fmt.Sprintf("Orig buf:  %v at partNumber: %v", buf.Len(), c.partNumber))
 }
 
 func (c *Converter) UploadAndDeletePart() (err error) {
