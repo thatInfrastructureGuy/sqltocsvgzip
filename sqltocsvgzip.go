@@ -285,7 +285,9 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 			c.uploadQ <- &partObj
 		}
 
+		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
 		c.gzipBuf = buf
+		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
 	} else {
 		c.writeLog(Debug, fmt.Sprintf("Buffer len %v should be greater than %v for upload.", buf.Len(), c.UploadPartSize))
 		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
@@ -298,8 +300,7 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 			partNumber: c.partNumber - 1,
 			buf:        make([]byte, c.gzipBuf.Len()),
 		}
-		n := copy(partObj.buf, c.gzipBuf.Bytes())
-		c.writeLog(Debug, fmt.Sprintf("Bytes copied: %v", n))
+		copy(partObj.buf, c.gzipBuf.Bytes())
 		c.uploadQ <- &partObj
 
 		c.partNumber--
