@@ -1,7 +1,6 @@
 package sqltocsvgzip
 
 import (
-	"bytes"
 	"compress/flate"
 	"database/sql"
 	"os"
