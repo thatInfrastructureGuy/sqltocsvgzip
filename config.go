@@ -95,6 +95,7 @@ func New(rows *sql.Rows) *Converter {
 func DefaultConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
+		gzipBuf:               &bytes.Buffer{},
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
