@@ -278,36 +278,33 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 		if c.partNumber > 1 {
 			// Add part to queue
 			c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
-			partObj := obj{
+			c.uploadQ <- &obj{
 				partNumber: c.partNumber - 1,
-				buf:        make([]byte, c.gzipBuf.Len()),
+				buf:        c.gzipBuf,
 			}
-			copy(partObj.buf, c.gzipBuf.Bytes())
-			c.uploadQ <- &partObj
 		}
 
-		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
-		c.gzipBuf = *buf
-		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
+		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
+		c.gzipBuf = make([]byte, buf.Len())
+		copy(c.gzipBuf, buf.Bytes())
+		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
 	} else {
 		c.writeLog(Debug, fmt.Sprintf("Buffer len %v should be greater than %v for upload.", buf.Len(), c.UploadPartSize))
-		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
-		c.gzipBuf.Write(buf.Bytes())
-		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
+		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
+		c.gzipBuf = append(c.gzipBuf, buf.Bytes()...)
+		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
 
 		// Add part to queue
 		c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
-		partObj := obj{
+		c.uploadQ <- &obj{
 			partNumber: c.partNumber - 1,
-			buf:        make([]byte, c.gzipBuf.Len()),
+			buf:        c.gzipBuf,
 		}
-		copy(partObj.buf, c.gzipBuf.Bytes())
-		c.uploadQ <- &partObj
 
 		c.partNumber--
 	}
 
-	c.writeLog(Verbose, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", c.gzipBuf.Len(), c.partNumber))
+	c.writeLog(Verbose, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
 	buf.Reset()
 }
 
