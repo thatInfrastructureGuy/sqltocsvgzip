@@ -226,7 +226,7 @@ func (c *Converter) Write(w io.Writer) error {
 							}
 
 							// Add to Queue
-							c.AddToQueue(gzipBuffer)
+							c.AddToQueue(gzipBuffer, false)
 
 							//Reset writer
 							gzipBuffer.Reset()
@@ -276,7 +276,7 @@ func (c *Converter) Write(w io.Writer) error {
 			return fmt.Errorf("Expected buffer. Got %T", w)
 		}
 		c.writeLog(Debug, fmt.Sprintf("Last part gzipBuffer before AddToQueue: %v", gzipBuffer.Len()))
-		c.AddToQueue(gzipBuffer)
+		c.AddToQueue(gzipBuffer, true)
 
 		//Reset writer
 		gzipBuffer.Reset()
@@ -285,11 +285,11 @@ func (c *Converter) Write(w io.Writer) error {
 	return nil
 }
 
-func (c *Converter) AddToQueue(buf *bytes.Buffer) {
+func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {
 	// Increament PartNumber
 	c.partNumber++
 
-	if buf.Len() >= c.UploadPartSize {
+	if buf.Len() >= minFileSize {
 		if c.partNumber > 1 {
 			// Add part to queue
 			c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
@@ -303,6 +303,15 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 		c.gzipBuf = make([]byte, buf.Len())
 		copy(c.gzipBuf, buf.Bytes())
 		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
+		if lastPart {
+			// Add last part to queue
+			c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber))
+			c.uploadQ <- &obj{
+				partNumber: c.partNumber,
+				buf:        c.gzipBuf,
+			}
+			c.gzipBuf = c.gzipBuf[:0]
+		}
 	} else {
 		c.writeLog(Debug, fmt.Sprintf("Buffer len %v should be greater than %v for upload.", buf.Len(), c.UploadPartSize))
 		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
@@ -315,6 +324,7 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 			partNumber: c.partNumber - 1,
 			buf:        c.gzipBuf,
 		}
+		c.gzipBuf = c.gzipBuf[:0]
 
 		c.partNumber--
 	}
