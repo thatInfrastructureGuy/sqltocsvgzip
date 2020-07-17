@@ -225,6 +225,7 @@ func (c *Converter) Write(w io.Writer) error {
 
 					// Add to Queue
 					c.AddToQueue(*gzipBuffer)
+					gzipBuffer.Reset()
 				}
 			}
 		}
@@ -264,6 +265,7 @@ func (c *Converter) Write(w io.Writer) error {
 			return fmt.Errorf("Expected buffer. Got %T", w)
 		}
 		c.AddToQueue(*gzipBuffer)
+		gzipBuffer.Reset()
 	}
 
 	return nil
