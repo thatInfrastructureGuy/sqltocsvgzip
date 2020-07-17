@@ -194,37 +194,44 @@ func (c *Converter) Write(w io.Writer) error {
 				}
 				// Reset Slice
 				sqlRowBatch = sqlRowBatch[:0]
-			}
 
-			// Convert from csv to gzip
-			// Writes from buffer to underlying file
-			if csvBuffer.Len() >= c.UploadPartSize {
-				bytesWritten, err := zw.Write(csvBuffer.Bytes())
-				c.writeLog(Debug, fmt.Sprintf("Csv to gzip bytes written: %v", bytesWritten))
-				if err != nil {
-					return err
-				}
-
-				// Reset buffer
-				csvBuffer.Reset()
-
-			}
-			// Upload partially created file to S3
-			// If size of the gzip file exceeds maxFileStorage
-			if c.S3Upload {
-				gzipBuffer, ok := w.(*bytes.Buffer)
-				if !ok {
-					return fmt.Errorf("Expected buffer. Got %T", w)
-				}
-
-				if gzipBuffer.Len() >= c.UploadPartSize {
-					c.writeLog(Debug, fmt.Sprintf("gzipBuffer size: %v", gzipBuffer.Len()))
-					if c.partNumber == 10000 {
-						return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
+				// Convert from csv to gzip
+				// Writes from buffer to underlying file
+				if csvBuffer.Len() >= c.UploadPartSize {
+					bytesWritten, err := zw.Write(csvBuffer.Bytes())
+					if err != nil {
+						return err
+					}
+					c.writeLog(Debug, fmt.Sprintf("Csv to gzip bytes written: %v", bytesWritten))
+					err = zw.Flush()
+					if err != nil {
+						return err
 					}
 
-					// Add to Queue
-					c.AddToQueue(gzipBuffer)
+					// Reset buffer
+					csvBuffer.Reset()
+
+					// Upload partially created file to S3
+					// If size of the gzip file exceeds maxFileStorage
+					if c.S3Upload {
+						gzipBuffer, ok := w.(*bytes.Buffer)
+						if !ok {
+							return fmt.Errorf("Expected buffer. Got %T", w)
+						}
+
+						if gzipBuffer.Len() >= c.UploadPartSize {
+							c.writeLog(Debug, fmt.Sprintf("gzipBuffer size: %v", gzipBuffer.Len()))
+							if c.partNumber == 10000 {
+								return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
+							}
+
+							// Add to Queue
+							c.AddToQueue(gzipBuffer)
+
+							//Reset writer
+							gzipBuffer.Reset()
+						}
+					}
 				}
 			}
 		}
@@ -247,6 +254,10 @@ func (c *Converter) Write(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	err = zw.Flush()
+	if err != nil {
+		return err
+	}
 	//Wipe the buffer
 	csvBuffer.Reset()
 	c.writeLog(Debug, fmt.Sprintf("Last part wrote bytes: %v", bytesWritten))
@@ -266,6 +277,9 @@ func (c *Converter) Write(w io.Writer) error {
 		}
 		c.writeLog(Debug, fmt.Sprintf("Last part gzipBuffer before AddToQueue: %v", gzipBuffer.Len()))
 		c.AddToQueue(gzipBuffer)
+
+		//Reset writer
+		gzipBuffer.Reset()
 	}
 
 	return nil
@@ -304,8 +318,6 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 
 		c.partNumber--
 	}
-
-	buf.Reset()
 }
 
 func (c *Converter) UploadAndDeletePart() (err error) {

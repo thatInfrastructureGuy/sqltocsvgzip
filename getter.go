@@ -3,7 +3,6 @@ package sqltocsvgzip
 import (
 	"io"
 
-	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/pgzip"
 )
 
@@ -19,14 +18,8 @@ func (c *Converter) getSqlBatchSize(totalColumns int) {
 	c.SqlBatchSize = 4096
 }
 
-func (c *Converter) getGzipWriter(writer io.Writer) (io.WriteCloser, error) {
-	// Use gzip if single threaded
-	if c.SingleThreaded {
-		zw, err := gzip.NewWriterLevel(writer, c.CompressionLevel)
-		return zw, err
-	}
-
-	// Use pgzip if multi-threaded
+func (c *Converter) getGzipWriter(writer io.Writer) (*pgzip.Writer, error) {
+	// Use pgzip for multi-threaded
 	zw, err := pgzip.NewWriterLevel(writer, c.CompressionLevel)
 	if err != nil {
 		return zw, err
