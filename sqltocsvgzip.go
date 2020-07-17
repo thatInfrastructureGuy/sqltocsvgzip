@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"sync"
-	"time"
 )
 
 // WriteFile will write a CSV.GZIP file to the file name specified (with headers)
@@ -225,10 +224,7 @@ func (c *Converter) Write(w io.Writer) error {
 					}
 
 					// Add to Queue
-					c.writeLog(Debug, fmt.Sprintf("Orig buf:  %v", gzipBuffer.Len()))
 					c.AddToQueue(gzipBuffer)
-					c.writeLog(Debug, fmt.Sprintf("Orig buf:  %v", gzipBuffer.Len()))
-					time.Sleep(5 * time.Second)
 				}
 			}
 		}
@@ -247,12 +243,13 @@ func (c *Converter) Write(w io.Writer) error {
 	//Wipe the buffer
 	sqlRowBatch = nil
 
-	_, err = zw.Write(csvBuffer.Bytes())
+	bytesWritten, err := zw.Write(csvBuffer.Bytes())
 	if err != nil {
 		return err
 	}
 	//Wipe the buffer
 	csvBuffer.Reset()
+	c.writeLog(Debug, fmt.Sprintf("Last part wrote bytes: %v", bytesWritten))
 
 	// Log the total number of rows processed.
 	c.writeLog(Info, fmt.Sprintf("Total rows processed (sql rows + headers row): %v", countRows))
@@ -308,10 +305,7 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer) {
 		c.partNumber--
 	}
 
-	c.writeLog(Verbose, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
-	c.writeLog(Debug, fmt.Sprintf("Orig buf:  %v at partNumber: %v", buf.Len(), c.partNumber))
 	buf.Reset()
-	c.writeLog(Debug, fmt.Sprintf("Orig buf:  %v at partNumber: %v", buf.Len(), c.partNumber))
 }
 
 func (c *Converter) UploadAndDeletePart() (err error) {
