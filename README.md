@@ -135,16 +135,18 @@ csvConverter.WriteFile("~/important_user_report.csv.gzip")
 
 
 ### System Requirements
-* Tldr; 
-    * (vcpu x PartUploadSize) + (3 x PartUploadSize)
-    * (vcpu x 50Mb ) + 150Mb [Default Settings]
-* Considering a machine with 2 cores (4 vcpu) with default settings 350 Mb should be enough.
+* Minimum:
+    * CPU: 2 vcpu
+    * Memory Formula: (vcpu x PartUploadSize) + (3 x PartUploadSize)
+    * Memory: 250Mb = (2 x 50Mb ) + (3 x 50Mb)
+    * Disk: Only needed if your writing to a file locally. (> size of gzip file)
+* Memory Formula Calculation: 2 core /4 vcpu => 350 Mb
     * Number of goroutines spaw would be 4 for gzipping + 4 for uploading. 
     * sql batch = [4096 x number of columns x `string size /time.Time size`]
     * csv buffer = 50 Mb
     * gzip buffer = 50 Mb
     * Upload queue would queue max 4 gzipped buffers and use 1 additional temporary buffer
-    * Memory = sqlBatch[1Mb] +  csv[50Mb] + gzip[250Mb] + Inbuilt buffers/vars + 8 goroutines
+    * Memory = sqlBatch[1Mb] +  csv[50Mb] + gzip[250Mb] + Inbuilt buffers/vars + goroutines
 
 ---
 
