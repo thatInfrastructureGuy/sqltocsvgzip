@@ -14,7 +14,7 @@ A library designed to convert sql.Rows result from a query into a **CSV.GZIP** f
  
 ### Installation
 ```go 
-go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.5
+go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.6
 ```
 
 _Note: Please do not use master branch. Master branch may contain breaking changes. Use tags instead._
@@ -61,7 +61,7 @@ if err != nil {
 ```go
 rows, _ := db.Query("SELECT * FROM users WHERE something=72")
 
-config := sqltocsvgzip.DefaultConfig(rows)
+config := sqltocsvgzip.UploadConfig(rows)
 config.S3Bucket = "mybucket"
 config.S3Path = "/myfolder/file.csv.gzip"
 config.S3Region = "us-west-1"
@@ -97,7 +97,7 @@ If you need more flexibility you can get an instance of a `Converter` and fiddle
 ```go
 rows, _ := db.Query("SELECT * FROM users WHERE something=72")
 
-csvConverter := sqltocsvgzip.New(rows)
+csvConverter := sqltocsvgzip.WriteConfig(rows)
 
 csvConverter.TimeFormat = time.RFC822
 csvConverter.Headers = append(rows.Columns(), "extra_column_one", "extra_column_two")
