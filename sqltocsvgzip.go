@@ -272,7 +272,6 @@ func (c *Converter) Write(w io.Writer) error {
 		if !ok {
 			return fmt.Errorf("Expected buffer. Got %T", w)
 		}
-		c.writeLog(Debug, fmt.Sprintf("Last part gzipBuffer before AddToQueue: %v", gzipBuffer.Len()))
 		c.AddToQueue(gzipBuffer, true)
 
 		//Reset writer
