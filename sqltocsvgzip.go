@@ -18,7 +18,7 @@ import (
 // WriteFile will write a CSV.GZIP file to the file name specified (with headers)
 // based on whatever is in the sql.Rows you pass in.
 func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
-	return New(rows).WriteFile(csvGzipFileName)
+	return WriteConfig(rows).WriteFile(csvGzipFileName)
 }
 
 // UploadToS3 will upload a CSV.GZIP file to AWS S3 bucket (with headers)
@@ -288,7 +288,7 @@ func (c *Converter) Write(w io.Writer) error {
 	return nil
 }
 
-// AddToQueue sends obj over the upload queue. 
+// AddToQueue sends obj over the upload queue.
 // Currently, It is designed to work with AWS multipart upload.
 // If the part body is less than 5Mb in size, 2 parts are combined together before sending.
 func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {

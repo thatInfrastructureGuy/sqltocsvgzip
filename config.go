@@ -73,10 +73,10 @@ func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
 	c.rowPreProcessor = processor
 }
 
-// New will return a Converter which will write your CSV however you like
+// WriteConfig will return a Converter which will write your CSV however you like
 // but will allow you to set a bunch of non-default behaivour like overriding
 // headers or injecting a pre-processing step into your conversion
-func New(rows *sql.Rows) *Converter {
+func WriteConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
 		WriteHeaders:          true,

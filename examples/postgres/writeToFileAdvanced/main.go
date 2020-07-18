@@ -71,7 +71,7 @@ func getDBConnection() string {
 
 func setConfig(rows *sql.Rows) (*sqltocsvgzip.Converter, error) {
 	// Get default configuration
-	config := sqltocsvgzip.New(rows)
+	config := sqltocsvgzip.WriteConfig(rows)
 	config.SqlBatchSize = 1000
 
 	return config, nil
