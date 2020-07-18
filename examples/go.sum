@@ -22,8 +22,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.5.1 h1:nOGnQDM7FYENwehXlg/kFVnos3rEvtKTjRvOWSzb6H4=
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
-github.com/thatInfrastructureGuy/sqltocsvgzip v0.0.5 h1:+vR9klpikemMOW2x2ibBt8OBikYczS6BLxysnPkdkM0=
-github.com/thatInfrastructureGuy/sqltocsvgzip v0.0.5/go.mod h1:pFI4Cx6xhvhNYOT0T7U13De7mvtx9rbxnZsRq1fK32Q=
+github.com/thatInfrastructureGuy/sqltocsvgzip v0.0.6 h1:J9fZz8+kFdKkVMC5uLCAH7KNH7HZTf5Sjq7Cq6Z0Dpg=
+github.com/thatInfrastructureGuy/sqltocsvgzip v0.0.6/go.mod h1:pFI4Cx6xhvhNYOT0T7U13De7mvtx9rbxnZsRq1fK32Q=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c h1:Vj5n4GlwjmQteupaxJ9+0FNOmBrHfq7vN4btdGoDZgI=
 golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
