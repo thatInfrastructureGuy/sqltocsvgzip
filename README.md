@@ -1,4 +1,4 @@
-# sqltocsvgzip [![Build Status](https://travis-ci.org/thatinfrastructureguy/sqltocsvgzip.svg?branch=master)](https://travis-ci.org/thatinfrastructureguy/sqltocsvgzip)
+# [sqltocsvgzip](https://pkg.go.dev/github.com/thatInfrastructureGuy/sqltocsvgzip) [![Build Status](https://travis-ci.org/thatinfrastructureguy/sqltocsvgzip.svg?branch=master)](https://travis-ci.org/thatinfrastructureguy/sqltocsvgzip)
 
 A library designed to convert sql.Rows result from a query into a **CSV.GZIP** file and/or **upload to AWS S3**.
 
@@ -11,16 +11,6 @@ A library designed to convert sql.Rows result from a query into a **CSV.GZIP** f
 * Upload retries for resiliency
 * Uploading to S3 does not require local storage.
 * Consistent memory, cpu and network usage whether your database has 1 Million or 1 Trillion records.
-
-### System Requirements
-+ Default settings: 
-    * PartUploadSize = 50 * 1024 * 1024 [50Mb]
-    * 350 Mb Memory
-    * 1.5 vcpu
-+ Minimum settings: 
-    * PartUploadSize = 5 * 1024 * 1025 [> 5 Mb]
-    * 80 Mb Memory
-    * 1 vcpu
  
 ### Defaults
 * 4096 rows of default sql batch.
@@ -143,9 +133,18 @@ csvConverter.SetRowPreProcessor(func (columns []string) (bool, []string) {
 csvConverter.WriteFile("~/important_user_report.csv.gzip")
 ```
 
----
 
-For more details on what else you can do to the `Converter` see the [sqltocsvgzip godocs](https://pkg.go.dev/github.com/thatInfrastructureGuy/sqltocsvgzip)
+### System Requirements
+* Tldr; 
+    * (vcpu x PartUploadSize ) + 150Mb
+    * (vcpu x 50Mb ) + 150Mb [Default Settings]
+* Considering a machine with 2 cores (4 vcpu) with default settings 350 Mb should be enough.
+    * Number of goroutines spaw would be 4 for gzipping + 4 for uploading. 
+    * sql batch = [4096 x number of columns x `string size /time.Time size`]
+    * csv buffer = 50 Mb
+    * gzip buffer = 50 Mb
+    * Upload queue would queue max 4 gzipped buffers and use 1 additional temporary buffer
+    * Memory = sqlBatch[1Mb] +  csv[50Mb] + gzip[250Mb] + Inbuilt buffers/vars + 8 goroutines
 
 ---
 
