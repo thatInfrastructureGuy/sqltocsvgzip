@@ -12,19 +12,6 @@ A library designed to convert sql.Rows result from a query into a **CSV.GZIP** f
 * Uploading to S3 does not require local storage.
 * Consistent memory, cpu and network usage whether your database has 1 Million or 1 Trillion records.
  
-### Defaults
-* 4096 rows of default sql batch.
-* 50Mb default csv buffer size.
-* 50Mb default pgzip buffer size.
-* Zipping: Default runtime.GOMAXPROCS(0) goroutines with 1Mb data/goroutine
-* Uploading: Default runtime.GOMAXPROCS(0) goroutines.
-
-### Caveats
-* Minimum PartUploadSize should be greater than 5 Mb.
-* Maximum of 10000 part uploads are allowed by AWS. Hence, (50Mb x 10000) `500Gb` of gzipped data is supported by default settings.
-* Increase buffer size if you want to reduce parts or have more than 50Gb of gzipped data.
-* Currently only supports upload to AWS S3 API compatible storage.
-
 ### Installation
 ```go 
 go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.5
@@ -133,6 +120,18 @@ csvConverter.SetRowPreProcessor(func (columns []string) (bool, []string) {
 csvConverter.WriteFile("~/important_user_report.csv.gzip")
 ```
 
+### Defaults
+* 4096 rows of default sql batch.
+* 50Mb default csv buffer size.
+* 50Mb default pgzip buffer size.
+* Zipping: Default runtime.GOMAXPROCS(0) goroutines with 1Mb data/goroutine
+* Uploading: Default runtime.GOMAXPROCS(0) goroutines.
+
+### Caveats
+* Minimum PartUploadSize should be greater than 5 Mb.
+* Maximum of 10000 part uploads are allowed by AWS. Hence, (50Mb x 10000) `500Gb` of gzipped data is supported by default settings.
+* Increase buffer size if you want to reduce parts or have more than 50Gb of gzipped data.
+* Currently only supports upload to AWS S3 API compatible storage.
 
 ### System Requirements
 * Minimum:
