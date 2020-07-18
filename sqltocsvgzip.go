@@ -14,7 +14,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"time"
 )
 
 // WriteFile will write a CSV.GZIP file to the file name specified (with headers)
@@ -72,7 +71,6 @@ func (c *Converter) Upload() error {
 		return err
 	}
 
-	time.Sleep(10 * time.Second)
 	close(c.uploadQ)
 	wg.Wait()
 
@@ -261,6 +259,11 @@ func (c *Converter) Write(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	err = zw.Close()
+	if err != nil {
+		return err
+	}
+
 	//Wipe the buffer
 	csvBuffer.Reset()
 	c.writeLog(Debug, fmt.Sprintf("Last part wrote bytes: %v", bytesWritten))
