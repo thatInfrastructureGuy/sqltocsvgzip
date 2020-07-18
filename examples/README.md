@@ -13,14 +13,14 @@ S3Region:              os.Getenv("S3_REGION"), # Required
 S3Acl:                 os.Getenv("S3_ACL"),    # Optional
 ```
 
-2. Change the config when getting the default config.
+2. Change the config when getting the default config to WriteFile.
 
 ```
 cfg := sqltocsvgzip.WriteConfig() // To write a file
 cfg.SqlBatchSize = 1000
 ```
 
-3. 
+3. Change the config when getting the default config to UploadToS3.
 
 ```
 cfg := sqltocsvgzip.UploadConfig() // To upload to S3
