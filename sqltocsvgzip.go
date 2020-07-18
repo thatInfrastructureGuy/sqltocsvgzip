@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 )
 
 // WriteFile will write a CSV.GZIP file to the file name specified (with headers)
@@ -71,6 +72,7 @@ func (c *Converter) Upload() error {
 		return err
 	}
 
+	time.Sleep(10 * time.Second)
 	close(c.uploadQ)
 	wg.Wait()
 
