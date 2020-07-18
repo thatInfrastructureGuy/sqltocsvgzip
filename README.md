@@ -136,7 +136,7 @@ csvConverter.WriteFile("~/important_user_report.csv.gzip")
 
 ### System Requirements
 * Tldr; 
-    * (vcpu x PartUploadSize ) + 150Mb
+    * (vcpu x PartUploadSize) + (3 x PartUploadSize)
     * (vcpu x 50Mb ) + 150Mb [Default Settings]
 * Considering a machine with 2 cores (4 vcpu) with default settings 350 Mb should be enough.
     * Number of goroutines spaw would be 4 for gzipping + 4 for uploading. 
