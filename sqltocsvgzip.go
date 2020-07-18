@@ -16,17 +16,24 @@ import (
 )
 
 // WriteFile will write a CSV.GZIP file to the file name specified (with headers)
-// based on whatever is in the sql.Rows you pass in. It calls WriteCsvToWriter under
-// the hood.
+// based on whatever is in the sql.Rows you pass in.
 func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
 	return New(rows).WriteFile(csvGzipFileName)
 }
 
+// UploadToS3 will upload a CSV.GZIP file to AWS S3 bucket (with headers)
+// based on whatever is in the sql.Rows you pass in.
+// UploadToS3 looks for the following environment variables.
+// Required: S3_BUCKET, S3_PATH, S3_REGION
+// Optional: S3_ACL (default => bucket-owner-full-control)
 func UploadToS3(rows *sql.Rows) error {
 	return DefaultConfig(rows).Upload()
 }
 
-// WriteFile writes the csv.gzip to the filename specified, return an error if problem
+// Upload uploads the csv.gzip, return an error if problem.
+// Creates a Multipart AWS requests.
+// Completes the multipart request if all uploads are successful.
+// Aborts the operation when an error is received.
 func (c *Converter) Upload() error {
 	if c.UploadPartSize < minFileSize {
 		return fmt.Errorf("UploadPartSize should be greater than %v\n", minFileSize)
@@ -53,7 +60,7 @@ func (c *Converter) Upload() error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err = c.UploadAndDeletePart()
+			err = c.UploadPart()
 			if err != nil {
 				c.writeLog(Error, err.Error())
 			}
@@ -281,6 +288,9 @@ func (c *Converter) Write(w io.Writer) error {
 	return nil
 }
 
+// AddToQueue sends obj over the upload queue. 
+// Currently, It is designed to work with AWS multipart upload.
+// If the part body is less than 5Mb in size, 2 parts are combined together before sending.
 func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {
 	// Increament PartNumber
 	c.partNumber++
@@ -322,7 +332,10 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {
 	}
 }
 
-func (c *Converter) UploadAndDeletePart() (err error) {
+// UploadPart listens to upload queue. Whenever an obj is received,
+// it is then uploaded to AWS.
+// Abort operation is called if any error is received.
+func (c *Converter) UploadPart() (err error) {
 	mu := &sync.RWMutex{}
 	for s3obj := range c.uploadQ {
 		err = c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
@@ -337,6 +350,7 @@ func (c *Converter) UploadAndDeletePart() (err error) {
 	return
 }
 
+// writeLog decides whether to write a log to stdout depending on LogLevel.
 func (c *Converter) writeLog(logLevel LogLevel, logLine string) {
 	if logLevel <= c.LogLevel {
 		log.Println(logLine)
