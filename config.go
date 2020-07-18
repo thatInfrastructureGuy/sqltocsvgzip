@@ -41,7 +41,6 @@ type Converter struct {
 	CompressionLevel      int
 	GzipGoroutines        int
 	GzipBatchPerGoroutine int
-	SingleThreaded        bool
 	S3Bucket              string
 	S3Region              string
 	S3Acl                 string
