@@ -12,7 +12,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"strconv"
 	"sync"
 )
 
@@ -187,7 +186,6 @@ func (c *Converter) Write(w io.Writer) error {
 
 			// Write to CSV Buffer
 			if len(sqlRowBatch) >= c.SqlBatchSize {
-				c.writeLog(Verbose, fmt.Sprintf("Batching at %v rows", len(sqlRowBatch)))
 				countRows = countRows + int64(len(sqlRowBatch))
 				err = csvWriter.WriteAll(sqlRowBatch)
 				if err != nil {
@@ -203,7 +201,6 @@ func (c *Converter) Write(w io.Writer) error {
 					if err != nil {
 						return err
 					}
-					c.writeLog(Debug, fmt.Sprintf("Csv to gzip bytes written: %v", bytesWritten))
 					err = zw.Flush()
 					if err != nil {
 						return err
@@ -221,7 +218,6 @@ func (c *Converter) Write(w io.Writer) error {
 						}
 
 						if gzipBuffer.Len() >= c.UploadPartSize {
-							c.writeLog(Debug, fmt.Sprintf("gzipBuffer size: %v", gzipBuffer.Len()))
 							if c.partNumber == 10000 {
 								return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
 							}
@@ -255,10 +251,6 @@ func (c *Converter) Write(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	err = zw.Flush()
-	if err != nil {
-		return err
-	}
 	err = zw.Close()
 	if err != nil {
 		return err
@@ -266,7 +258,6 @@ func (c *Converter) Write(w io.Writer) error {
 
 	//Wipe the buffer
 	csvBuffer.Reset()
-	c.writeLog(Debug, fmt.Sprintf("Last part wrote bytes: %v", bytesWritten))
 
 	// Log the total number of rows processed.
 	c.writeLog(Info, fmt.Sprintf("Total rows processed (sql rows + headers row): %v", countRows))
@@ -305,10 +296,8 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {
 			}
 		}
 
-		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
 		c.gzipBuf = make([]byte, buf.Len())
 		copy(c.gzipBuf, buf.Bytes())
-		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
 		if lastPart {
 			// Add last part to queue
 			c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber))
@@ -319,10 +308,8 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {
 			c.gzipBuf = c.gzipBuf[:0]
 		}
 	} else {
-		c.writeLog(Debug, fmt.Sprintf("Buffer len %v should be greater than %v for upload.", buf.Len(), c.UploadPartSize))
-		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
+		c.writeLog(Debug, fmt.Sprintf("Buffer size %v less than %v. Appending to previous part.", buf.Len(), c.UploadPartSize))
 		c.gzipBuf = append(c.gzipBuf, buf.Bytes()...)
-		c.writeLog(Debug, fmt.Sprintf("c.gzipBuf:  %v at partNumber: %v", len(c.gzipBuf), c.partNumber))
 
 		// Add part to queue
 		c.writeLog(Debug, fmt.Sprintf("Add part to queue: #%v", c.partNumber-1))
@@ -339,19 +326,6 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {
 func (c *Converter) UploadAndDeletePart() (err error) {
 	mu := &sync.RWMutex{}
 	for s3obj := range c.uploadQ {
-		f, err := os.Create(strconv.FormatInt(s3obj.partNumber, 10))
-		if err != nil {
-			f.Close()
-			return err
-		}
-		n, err := io.Copy(f, bytes.NewReader(s3obj.buf))
-		if err != nil {
-			f.Close()
-			return err
-		}
-		f.Close()
-		c.writeLog(Debug, fmt.Sprintf("Bytes written in file %v: %v", s3obj.partNumber, n))
-
 		err = c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
 		if err != nil {
 			c.writeLog(Error, "Error occurred. Sending quit signal to writer.")
