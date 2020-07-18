@@ -99,8 +99,8 @@ func DefaultConfig(rows *sql.Rows) *Converter {
 		GzipGoroutines:        runtime.GOMAXPROCS(0),
 		GzipBatchPerGoroutine: 1 * 1024 * 1024,
 		S3Upload:              true,
-		UploadThreads:         6,
-		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024 for s3 upload
+		UploadThreads:         runtime.GOMAXPROCS(0),
+		UploadPartSize:        50 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024 for s3 upload
 		S3Bucket:              os.Getenv("S3_BUCKET"),
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),
