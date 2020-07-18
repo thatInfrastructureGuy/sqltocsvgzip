@@ -71,7 +71,7 @@ func getDBConnection() string {
 
 func setConfig(rows *sql.Rows) (*sqltocsvgzip.Converter, error) {
 	// Get default configuration
-	config := sqltocsvgzip.DefaultConfig(rows)
+	config := sqltocsvgzip.UploadConfig(rows)
 
 	if len(config.S3Path) != 0 {
 		config.S3Path = "myfolder/test.csv.gzip"

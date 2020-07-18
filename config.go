@@ -89,8 +89,8 @@ func WriteConfig(rows *sql.Rows) *Converter {
 	}
 }
 
-// DefaultConfig sets the default values for Converter struct.
-func DefaultConfig(rows *sql.Rows) *Converter {
+// UploadConfig sets the default values for Converter struct.
+func UploadConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
 		WriteHeaders:          true,

@@ -27,7 +27,7 @@ func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
 // Required: S3_BUCKET, S3_PATH, S3_REGION
 // Optional: S3_ACL (default => bucket-owner-full-control)
 func UploadToS3(rows *sql.Rows) error {
-	return DefaultConfig(rows).Upload()
+	return UploadConfig(rows).Upload()
 }
 
 // Upload uploads the csv.gzip, return an error if problem.
