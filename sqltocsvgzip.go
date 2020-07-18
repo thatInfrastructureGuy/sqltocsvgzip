@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 )
 
@@ -333,6 +334,19 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {
 func (c *Converter) UploadAndDeletePart() (err error) {
 	mu := &sync.RWMutex{}
 	for s3obj := range c.uploadQ {
+		f, err := os.Create(strconv.FormatInt(s3obj.partNumber, 10))
+		if err != nil {
+			f.Close()
+			return err
+		}
+		n, err := io.Copy(f, bytes.NewReader(s3obj.buf))
+		if err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+		c.writeLog(Debug, fmt.Sprintf("Bytes written in file %v: %v", s3obj.partNumber, n))
+
 		err = c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
 		if err != nil {
 			c.writeLog(Error, "Error occurred. Sending quit signal to writer.")
