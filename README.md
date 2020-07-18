@@ -3,28 +3,41 @@
 A library designed to convert sql.Rows result from a query into a **CSV.GZIP** file and/or **upload to AWS S3**.
 
 ## Features
-* One liner:  `sql -> csv -> gzip -> S3` process
+* `UploadToS3(rows)`:  `sql -> csv -> gzip -> S3`
+* `WriteFile(rows, filename)`: `sql -> csv -> gzip -> file`
 * Multi-threaded Gzip compression
-* Multi-threaded S3 upload
-* Multipart S3 upload with retries for resiliency
+* Concurrent S3 upload
+* Multipart S3 uploads
+* Upload retries for resiliency
 * Uploading to S3 does not require local storage.
 * Consistent memory, cpu and network usage whether your database has 1 Million or 1 Trillion records.
 
+### System Requirements
++ Default settings: 
+    * PartUploadSize = 50 * 1024 * 1024 [50Mb]
+    * 350 Mb Memory
+    * 1.5 vcpu
++ Minimum settings: 
+    * PartUploadSize = 5 * 1024 * 1025 [> 5 Mb]
+    * 80 Mb Memory
+    * 1 vcpu
+ 
 ### Defaults
 * 4096 rows of default sql batch.
-* ~5Mb default csv buffer size.
-* ~5Mb default pgzip buffer size.
-* pgzip: Default 10 goroutines with 100K data/goroutine
-* UploadtoS3: Default 6 concurrent uploads.
+* 50Mb default csv buffer size.
+* 50Mb default pgzip buffer size.
+* Zipping: Default runtime.GOMAXPROCS(0) goroutines with 1Mb data/goroutine
+* Uploading: Default runtime.GOMAXPROCS(0) goroutines.
 
 ### Caveats
-* Maximum of 10000 part uploads are allowed by AWS. Hence, (5Mb x 10000) `50Gb` of gzipped data is supported by default settings.
+* Minimum PartUploadSize should be greater than 5 Mb.
+* Maximum of 10000 part uploads are allowed by AWS. Hence, (50Mb x 10000) `500Gb` of gzipped data is supported by default settings.
 * Increase buffer size if you want to reduce parts or have more than 50Gb of gzipped data.
 * Currently only supports upload to AWS S3 API compatible storage.
 
 ### Installation
 ```go 
-go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.4
+go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.5
 ```
 
 _Note: Please do not use master branch. Master branch may contain breaking changes. Use tags instead._
