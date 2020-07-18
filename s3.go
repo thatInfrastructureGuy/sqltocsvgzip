@@ -118,6 +118,7 @@ func (c *Converter) uploadPart(partNumber int64, buf []byte, mu *sync.RWMutex) (
 	return nil
 }
 
+// UploadObjectToS3 uploads a file to AWS S3 without batching.
 func (c *Converter) UploadObjectToS3(w io.Writer) error {
 	buf, ok := w.(*bytes.Buffer)
 	if !ok {
