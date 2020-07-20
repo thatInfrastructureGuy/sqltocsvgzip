@@ -21,6 +21,8 @@ _Note: Please do not use master branch. Master branch may contain breaking chang
 
 ### Usage
 
+_Note: Check out [examples](https://github.com/thatInfrastructureGuy/sqltocsvgzip/tree/master/examples) directory for examples._
+
 Importing the package
 
 ```go
@@ -130,22 +132,15 @@ csvConverter.WriteFile("~/important_user_report.csv.gzip")
 ### Caveats
 * Minimum PartUploadSize should be greater than 5 Mb.
 * Maximum of 10000 part uploads are allowed by AWS. Hence, (50Mb x 10000) `500Gb` of gzipped data is supported by default settings.
-* Increase buffer size if you want to reduce parts or have more than 50Gb of gzipped data.
+* Increase buffer size if you want to reduce parts or have more than 500Gb of gzipped data.
 * Currently only supports upload to AWS S3 API compatible storage.
 
 ### System Requirements
+* Memory Requirements: (vcpu + 3) x PartUploadSize
 * Minimum:
     * CPU: 2 vcpu
-    * Memory Formula: (vcpu x PartUploadSize) + (3 x PartUploadSize)
-    * Memory: 250Mb = (2 x 50Mb ) + (3 x 50Mb)
+    * Memory: Depends on vcpu (For 2 vcpu, 250 Mb)
     * Disk: Only needed if your writing to a file locally. (> size of gzip file)
-* Memory Formula Calculation: 2 core /4 vcpu => 350 Mb
-    * Number of goroutines spaw would be 4 for gzipping + 4 for uploading. 
-    * sql batch = [4096 x number of columns x `string size /time.Time size`]
-    * csv buffer = 50 Mb
-    * gzip buffer = 50 Mb
-    * Upload queue would queue max 4 gzipped buffers and use 1 additional temporary buffer
-    * Memory = sqlBatch[1Mb] +  csv[50Mb] + gzip[250Mb] + Inbuilt buffers/vars + goroutines
 
 ---
 
