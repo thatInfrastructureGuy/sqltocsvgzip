@@ -136,12 +136,13 @@ csvConverter.WriteFile("~/important_user_report.csv.gzip")
 * Currently only supports upload to AWS S3 API compatible storage.
 
 ### System Requirements
-* Memory Requirements: (vcpu + 3) x PartUploadSize
 * Minimum:
     * CPU: 2 vcpu
-    * Memory: Depends on vcpu (For 2 vcpu, 250 Mb)
+    * Memory: [(vcpu + 3) x PartUploadSize](https://github.com/thatInfrastructureGuy/sqltocsvgzip/wiki/Memory-Footprint-Calculation)
     * Disk: Only needed if your writing to a file locally. (> size of gzip file)
 
 ---
 
-Credits to @joho for his work on [joho/sqltocsv](github.com/joho/sqltocsv)
+Credits:
+* [joho/sqltocsv](github.com/joho/sqltocsv)
+* [klauspost/pgzip](https://github.com/klauspost/pgzip)
