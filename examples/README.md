@@ -26,5 +26,5 @@ cfg.SqlBatchSize = 1000
 cfg := sqltocsvgzip.UploadConfig() // To upload to S3
 cfg.S3Path = "test.csv.gz"
 cfg.S3Region = "us-east-1"
-cfg.S3Bucket - "mybucket"
+cfg.S3Bucket = "mybucket"
 ```
