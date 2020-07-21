@@ -6,8 +6,7 @@ A library designed to convert sql.Rows result from a query into a **CSV.GZIP** f
 * `UploadToS3(rows)`:  `sql -> csv -> gzip -> S3`
 * `WriteFile(rows, filename)`: `sql -> csv -> gzip -> file`
 * Multi-threaded Gzip compression
-* Concurrent S3 upload
-* Multipart S3 uploads
+* Concurrent multipart S3 uploads
 * Upload retries for resiliency
 * Uploading to S3 does not require local storage.
 * Consistent memory, cpu and network usage whether your database has 1 Million or 1 Trillion records.
