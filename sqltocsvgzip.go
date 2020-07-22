@@ -12,7 +12,9 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 )
 
 // WriteFile will write a CSV.GZIP file to the file name specified (with headers)
@@ -140,6 +142,9 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 func (c *Converter) Write(w io.Writer) error {
 	var countRows int64
 	writeRow := true
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(interrupt)
 
 	csvWriter, csvBuffer := c.getCSVWriter()
 
@@ -173,6 +178,10 @@ func (c *Converter) Write(w io.Writer) error {
 	for c.rows.Next() {
 		select {
 		case <-c.quit:
+			c.abortMultipartUpload()
+			return fmt.Errorf("Received quit signal. Exiting.")
+		case <-interrupt:
+			c.abortMultipartUpload()
 			return fmt.Errorf("Received quit signal. Exiting.")
 		default:
 			// Do nothing
