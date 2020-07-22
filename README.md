@@ -3,8 +3,6 @@
 A library designed to convert sql.Rows result from a query into a **CSV.GZIP** file and/or **upload to AWS S3**.
 
 ## Features
-* `UploadToS3(rows)`:  `sql -> csv -> gzip -> S3`
-* `WriteFile(rows, filename)`: `sql -> csv -> gzip -> file`
 * Multi-threaded Gzip compression
 * Concurrent multipart S3 uploads
 * Upload retries for resiliency
@@ -17,6 +15,14 @@ go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.6
 ```
 
 _Note: Please do not use master branch. Master branch may contain breaking changes. Use tags instead._
+
+### Functions
+* Uploading ToS3 
+    * One-Liner:  UploadToS3(rows)
+    * Set up config:  UploadConfig(rows) + Upload()
+* Writing to File
+    * One-Liner: WriteFile(rows, filename)
+    * Set up config: WriteConfig(rows) + WriteFile(filename)
 
 ### Usage
 
