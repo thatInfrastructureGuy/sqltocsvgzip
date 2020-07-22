@@ -48,7 +48,7 @@ if err != nil {
 ```go
 rows, _ := db.Query("SELECT * FROM users WHERE something=72")
 
-// UploadToS3 looks for the followinging environment variables.
+// UploadToS3 looks for the following environment variables.
 // Required: S3_BUCKET, S3_PATH, S3_REGION
 // Optional: S3_ACL (default => bucket-owner-full-control)
 err := sqltocsvgzip.UploadToS3(rows)
