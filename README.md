@@ -73,7 +73,7 @@ config.S3Bucket = "mybucket"
 config.S3Path = "/myfolder/file.csv.gzip"
 config.S3Region = "us-west-1"
 
-err := sqltocsvgzip.Upload()
+err := config.Upload()
 if err != nil {
     panic(err)
 }
