@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -44,27 +45,49 @@ func (c *Converter) setCSVHeaders() ([]string, int, error) {
 
 func (c *Converter) stringify(values []interface{}) []string {
 	row := make([]string, len(values), len(values))
-	var value interface{}
 
-	for i := range values {
-		rawValue := values[i]
+	for i, rawValue := range values {
+		if rawValue == nil {
+			row[i] = ""
+			continue
+		}
 
 		byteArray, ok := rawValue.([]byte)
 		if ok {
-			value = string(byteArray)
-		} else {
-			value = rawValue
+			rawValue = string(byteArray)
 		}
 
-		timeValue, ok := value.(time.Time)
-		if ok && c.TimeFormat != "" {
-			value = timeValue.Format(c.TimeFormat)
-		}
-
-		if value == nil {
-			row[i] = ""
-		} else {
-			row[i] = fmt.Sprintf("%v", value)
+		switch castValue := rawValue.(type) {
+		case time.Time:
+			if c.TimeFormat != "" {
+				row[i] = castValue.Format(c.TimeFormat)
+			}
+		case bool:
+			row[i] = strconv.FormatBool(castValue)
+		case string:
+			row[i] = castValue
+		case int:
+			row[i] = strconv.FormatInt(int64(castValue), 10)
+		case int8:
+			row[i] = strconv.FormatInt(int64(castValue), 10)
+		case int16:
+			row[i] = strconv.FormatInt(int64(castValue), 10)
+		case int32:
+			row[i] = strconv.FormatInt(int64(castValue), 10)
+		case int64:
+			row[i] = strconv.FormatInt(int64(castValue), 10)
+		case uint:
+			row[i] = strconv.FormatUint(uint64(castValue), 10)
+		case uint8:
+			row[i] = strconv.FormatUint(uint64(castValue), 10)
+		case uint16:
+			row[i] = strconv.FormatUint(uint64(castValue), 10)
+		case uint32:
+			row[i] = strconv.FormatUint(uint64(castValue), 10)
+		case uint64:
+			row[i] = strconv.FormatUint(uint64(castValue), 10)
+		default:
+			row[i] = fmt.Sprintf("%v", castValue)
 		}
 	}
 
