@@ -149,15 +149,10 @@ func (c *Converter) Write(w io.Writer) error {
 	csvWriter, csvBuffer := c.getCSVWriter()
 
 	// Set headers
-	columnNames, totalColumns, err := c.setCSVHeaders()
+	columnNames, totalColumns, err := c.setCSVHeaders(csvWriter)
 	if err != nil {
 		return err
 	}
-
-	// Create slice and append headers
-	c.getSqlBatchSize(totalColumns)
-	sqlRowBatch := make([][]string, 0, c.SqlBatchSize)
-	sqlRowBatch = append(sqlRowBatch, columnNames)
 
 	// Buffers for each iteration
 	values := make([]interface{}, totalColumns, totalColumns)
@@ -168,7 +163,12 @@ func (c *Converter) Write(w io.Writer) error {
 	}
 
 	// GZIP writer to underline file.csv.gzip
-	zw, err := c.getGzipWriter(w)
+	gzipBuffer, ok := w.(*bytes.Buffer)
+	if !ok {
+		return fmt.Errorf("Expected buffer. Got %T", w)
+	}
+
+	zw, err := c.getGzipWriter(gzipBuffer)
 	if err != nil {
 		return err
 	}
@@ -198,70 +198,53 @@ func (c *Converter) Write(w io.Writer) error {
 		}
 
 		if writeRow {
-			sqlRowBatch = append(sqlRowBatch, row)
+			countRows = countRows + 1
 
 			// Write to CSV Buffer
-			if len(sqlRowBatch) >= c.SqlBatchSize {
-				countRows = countRows + int64(len(sqlRowBatch))
-				err = csvWriter.WriteAll(sqlRowBatch)
+			err = csvWriter.Write(row)
+			if err != nil {
+				return err
+			}
+			csvWriter.Flush()
+
+			// Convert from csv to gzip
+			// Writes from buffer to underlying file
+			if csvBuffer.Len() >= c.UploadPartSize {
+				_, err = zw.Write(csvBuffer.Bytes())
 				if err != nil {
 					return err
 				}
-				// Reset Slice
-				sqlRowBatch = sqlRowBatch[:0]
+				err = zw.Flush()
+				if err != nil {
+					return err
+				}
 
-				// Convert from csv to gzip
-				// Writes from buffer to underlying file
-				if csvBuffer.Len() >= c.UploadPartSize {
-					_, err = zw.Write(csvBuffer.Bytes())
-					if err != nil {
-						return err
-					}
-					err = zw.Flush()
-					if err != nil {
-						return err
-					}
+				// Reset buffer
+				csvBuffer.Reset()
 
-					// Reset buffer
-					csvBuffer.Reset()
-
-					// Upload partially created file to S3
-					// If size of the gzip file exceeds maxFileStorage
-					if c.S3Upload {
-						gzipBuffer, ok := w.(*bytes.Buffer)
-						if !ok {
-							return fmt.Errorf("Expected buffer. Got %T", w)
+				// Upload partially created file to S3
+				// If size of the gzip file exceeds maxFileStorage
+				if c.S3Upload {
+					if gzipBuffer.Len() >= c.UploadPartSize {
+						if c.partNumber == 10000 {
+							return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
 						}
 
-						if gzipBuffer.Len() >= c.UploadPartSize {
-							if c.partNumber == 10000 {
-								return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
-							}
+						// Add to Queue
+						c.AddToQueue(gzipBuffer, false)
 
-							// Add to Queue
-							c.AddToQueue(gzipBuffer, false)
-
-							//Reset writer
-							gzipBuffer.Reset()
-						}
+						//Reset writer
+						gzipBuffer.Reset()
 					}
 				}
 			}
 		}
 	}
+
 	err = c.rows.Err()
 	if err != nil {
 		return err
 	}
-
-	// Flush the remaining buffer to file.
-	countRows = countRows + int64(len(sqlRowBatch))
-	err = csvWriter.WriteAll(sqlRowBatch)
-	if err != nil {
-		return err
-	}
-	//Wipe the buffer
-	sqlRowBatch = nil
 
 	_, err = zw.Write(csvBuffer.Bytes())
 	if err != nil {
@@ -275,25 +258,20 @@ func (c *Converter) Write(w io.Writer) error {
 	//Wipe the buffer
 	csvBuffer.Reset()
 
-	// Log the total number of rows processed.
-	c.writeLog(Info, fmt.Sprintf("Total rows processed (sql rows + headers row): %v", countRows))
-
 	// Upload last part of the file to S3
 	if c.S3Upload {
 		if c.partNumber == 0 {
 			return nil
 		}
 		// Add to Queue for multipart upload
-		gzipBuffer, ok := w.(*bytes.Buffer)
-		if !ok {
-			return fmt.Errorf("Expected buffer. Got %T", w)
-		}
 		c.AddToQueue(gzipBuffer, true)
 
 		//Reset writer
 		gzipBuffer.Reset()
 	}
 
+	// Log the total number of rows processed.
+	c.writeLog(Info, fmt.Sprintf("Total sql rows processed: %v", countRows))
 	return nil
 }
 

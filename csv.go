@@ -23,7 +23,7 @@ func (c *Converter) getCSVWriter() (*csv.Writer, *bytes.Buffer) {
 	return csvWriter, &csvBuffer
 }
 
-func (c *Converter) setCSVHeaders() ([]string, int, error) {
+func (c *Converter) setCSVHeaders(csvWriter *csv.Writer) ([]string, int, error) {
 	var headers []string
 	columnNames, err := c.rows.Columns()
 	if err != nil {
@@ -39,6 +39,13 @@ func (c *Converter) setCSVHeaders() ([]string, int, error) {
 			headers = columnNames
 		}
 	}
+
+	// Write to CSV Buffer
+	err = csvWriter.Write(headers)
+	if err != nil {
+		return nil, 0, err
+	}
+	csvWriter.Flush()
 
 	return headers, len(headers), nil
 }
