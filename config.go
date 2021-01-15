@@ -37,7 +37,6 @@ type Converter struct {
 	WriteHeaders          bool     // Flag to output headers in your CSV (default is true)
 	TimeFormat            string   // Format string for any time.Time values (default is time's default)
 	Delimiter             rune     // Delimiter to use in your CSV (default is comma)
-	SqlBatchSize          int
 	CompressionLevel      int
 	GzipGoroutines        int
 	GzipBatchPerGoroutine int
