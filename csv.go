@@ -10,17 +10,17 @@ import (
 
 func (c *Converter) getCSVWriter() (*csv.Writer, *bytes.Buffer) {
 	// Same size as sqlRowBatch
-	var csvBuffer bytes.Buffer
+	csvBuffer := bytes.NewBuffer(make([]byte, 0, c.CsvBufferSize))
 
 	// CSV writer to csvBuffer
-	csvWriter := csv.NewWriter(&csvBuffer)
+	csvWriter := csv.NewWriter(csvBuffer)
 
 	// Set delimiter
 	if c.Delimiter != '\x00' {
 		csvWriter.Comma = c.Delimiter
 	}
 
-	return csvWriter, &csvBuffer
+	return csvWriter, csvBuffer
 }
 
 func (c *Converter) setCSVHeaders(csvWriter *csv.Writer) ([]string, int, error) {

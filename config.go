@@ -37,6 +37,7 @@ type Converter struct {
 	WriteHeaders          bool     // Flag to output headers in your CSV (default is true)
 	TimeFormat            string   // Format string for any time.Time values (default is time's default)
 	Delimiter             rune     // Delimiter to use in your CSV (default is comma)
+	CsvBufferSize         int
 	CompressionLevel      int
 	GzipGoroutines        int
 	GzipBatchPerGoroutine int
@@ -80,6 +81,7 @@ func WriteConfig(rows *sql.Rows) *Converter {
 		rows:                  rows,
 		WriteHeaders:          true,
 		Delimiter:             ',',
+		CsvBufferSize:         10 * 1024 * 1024,
 		CompressionLevel:      flate.DefaultCompression,
 		GzipGoroutines:        runtime.GOMAXPROCS(0), // Should be atleast the number of cores. Not sure how it impacts cgroup limits.
 		GzipBatchPerGoroutine: 512 * 1024,            // Should be atleast 100K
@@ -94,6 +96,7 @@ func UploadConfig(rows *sql.Rows) *Converter {
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
+		CsvBufferSize:         10 * 1024 * 1024,
 		GzipGoroutines:        runtime.GOMAXPROCS(0), // Should be atleast the number of cores. Not sure how it impacts cgroup limits.
 		GzipBatchPerGoroutine: 512 * 1024,            // Should be atleast 100K
 		LogLevel:              Info,
