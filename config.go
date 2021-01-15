@@ -82,9 +82,8 @@ func WriteConfig(rows *sql.Rows) *Converter {
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        runtime.GOMAXPROCS(0),
-		GzipBatchPerGoroutine: 1 * 1024 * 1024,
-		UploadPartSize:        5 * 1024 * 1025, // Should be greater than 1 * 1024 * 1024 for pgzip
+		GzipGoroutines:        runtime.GOMAXPROCS(0), // Should be atleast the number of cores. Not sure how it impacts cgroup limits.
+		GzipBatchPerGoroutine: 512 * 1024,            // Should be atleast 100K
 		LogLevel:              Info,
 	}
 }
@@ -96,8 +95,9 @@ func UploadConfig(rows *sql.Rows) *Converter {
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
-		GzipGoroutines:        runtime.GOMAXPROCS(0),
-		GzipBatchPerGoroutine: 1 * 1024 * 1024,
+		GzipGoroutines:        runtime.GOMAXPROCS(0), // Should be atleast the number of cores. Not sure how it impacts cgroup limits.
+		GzipBatchPerGoroutine: 512 * 1024,            // Should be atleast 100K
+		LogLevel:              Info,
 		S3Upload:              true,
 		UploadThreads:         runtime.GOMAXPROCS(0),
 		UploadPartSize:        50 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024 for s3 upload
@@ -105,6 +105,5 @@ func UploadConfig(rows *sql.Rows) *Converter {
 		S3Path:                os.Getenv("S3_PATH"),
 		S3Region:              os.Getenv("S3_REGION"),
 		S3Acl:                 os.Getenv("S3_ACL"),
-		LogLevel:              Info,
 	}
 }

@@ -209,7 +209,7 @@ func (c *Converter) Write(w io.Writer) error {
 
 			// Convert from csv to gzip
 			// Writes from buffer to underlying file
-			if csvBuffer.Len() >= c.UploadPartSize {
+			if csvBuffer.Len() >= (c.GzipBatchPerGoroutine * c.GzipGoroutines) {
 				_, err = zw.Write(csvBuffer.Bytes())
 				if err != nil {
 					return err
