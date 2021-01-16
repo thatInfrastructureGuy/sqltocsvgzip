@@ -48,6 +48,7 @@ type Converter struct {
 	S3Upload              bool
 	UploadThreads         int
 	UploadPartSize        int
+	RowCount              int64
 
 	s3Svc            *s3.S3
 	s3Resp           *s3.CreateMultipartUploadOutput

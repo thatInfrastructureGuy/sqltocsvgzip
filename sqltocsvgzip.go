@@ -140,7 +140,6 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 // Write writes the csv.gzip to the Writer provided
 func (c *Converter) Write(w io.Writer) error {
-	var countRows int64
 	writeRow := true
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
@@ -192,7 +191,7 @@ func (c *Converter) Write(w io.Writer) error {
 		}
 
 		if writeRow {
-			countRows = countRows + 1
+			c.RowCount = c.RowCount + 1
 
 			// Write to CSV Buffer
 			err = csvWriter.Write(row)
@@ -278,7 +277,7 @@ func (c *Converter) Write(w io.Writer) error {
 	}
 
 	// Log the total number of rows processed.
-	c.writeLog(Info, fmt.Sprintf("Total sql rows processed: %v", countRows))
+	c.writeLog(Info, fmt.Sprintf("Total sql rows processed: %v", c.RowCount))
 	return nil
 }
 
