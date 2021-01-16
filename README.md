@@ -11,7 +11,7 @@ A library designed to convert sql.Rows result from a query into a **CSV.GZIP** f
  
 ### Installation
 ```go 
-go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.7
+go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.9
 ```
 
 _Note: Please do not use master branch. Master branch may contain breaking changes. Use tags instead._
@@ -128,10 +128,9 @@ csvConverter.WriteFile("~/important_user_report.csv.gzip")
 ```
 
 ### Defaults
-* 4096 rows of default sql batch.
-* 50Mb default csv buffer size.
-* 50Mb default pgzip buffer size.
-* Zipping: Default runtime.GOMAXPROCS(0) goroutines with 1Mb data/goroutine
+* 10Mb default csv buffer size.
+* 50Mb default zip buffer size.
+* Zipping: Default runtime.GOMAXPROCS(0) goroutines with 512Kb data/goroutine
 * Uploading: Default runtime.GOMAXPROCS(0) goroutines.
 
 ### Caveats
