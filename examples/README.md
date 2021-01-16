@@ -17,7 +17,6 @@ S3Acl:                 os.Getenv("S3_ACL"),    # Optional
 
 ```
 cfg := sqltocsvgzip.WriteConfig() // To write a file
-cfg.SqlBatchSize = 4096
 ```
 
 3. Change the config when getting the default config to UploadToS3.
