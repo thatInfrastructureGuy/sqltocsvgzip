@@ -16,6 +16,8 @@ jobs:
         with:
           version: '2.x' # required: must satisfy semver.validRange
       
+      - run: go mod download # install dependencies in local environment
+          
       - run: |
           licensed list
           licensed status
