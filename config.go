@@ -102,7 +102,7 @@ func UploadConfig(rows *sql.Rows) *Converter {
 		GzipBatchPerGoroutine: 512 * 1024,            // Should be atleast 100K
 		LogLevel:              Info,
 		S3Upload:              true,
-		UploadThreads:         runtime.GOMAXPROCS(0),
+		UploadThreads:         4,
 		UploadPartSize:        50 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024 for s3 upload
 		S3Bucket:              os.Getenv("S3_BUCKET"),
 		S3Path:                os.Getenv("S3_PATH"),

@@ -5,8 +5,6 @@ Multiple ways to set the library:
 1. Environment Variables  the library looks for
 
 ```
-GzipGoroutines:        runtime.GOMAXPROCS(0),  # Dont change normally
-UploadThreads:         runtime.GOMAXPROCS(0),  # Dont change normally
 S3Bucket:              os.Getenv("S3_BUCKET"), # Required
 S3Path:                os.Getenv("S3_PATH"),   # Required
 S3Region:              os.Getenv("S3_REGION"), # Required
