@@ -11,14 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     name: Check licenses
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install licensed
-        run: |
-          cd $RUNNER_TEMP
-          export LICENSE_VERSION=2.14.3
-          curl -Lfs -o licensed.tar.gz https://github.com/github/licensed/releases/download/${LICENSE_VERSION}/licensed-${LICENSE_VERSION}-linux-x64.tar.gz
-          tar -xzf licensed.tar.gz
-          sudo mv licensed /usr/local/bin/licensed
-          rm licensed.tar.gz
+      - uses: actions/checkout@master
+      - uses: jonabc/setup-licensed@v1
+        with:
+          version: '2.x' # required: must satisfy semver.validRange
+      - run: go mod download # install dependencies in local environment
+      - run: licensed list
       - run: licensed status
+
