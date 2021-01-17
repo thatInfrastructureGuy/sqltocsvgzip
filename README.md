@@ -11,7 +11,7 @@ A library designed to convert sql.Rows result from a query into a **CSV.GZIP** f
  
 ### Installation
 ```go 
-go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.9
+go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.10
 ```
 
 _Note: Please do not use master branch. Master branch may contain breaking changes. Use tags instead._
@@ -90,7 +90,7 @@ http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     }
     defer rows.Close()
 
-    w.Header().Set("Content-Type", "text/csv")
+    w.Header().Set("Content-Type", "application/javascript")
     w.Header().Set("Content-Encoding", "gzip")
     w.Header().Set("Content-Disposition", "attachment; filename=\"report.csv.gzip\"")
 
@@ -99,17 +99,17 @@ http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 http.ListenAndServe(":8080", nil)
 ```
 
-If you need more flexibility you can get an instance of a `Converter` and fiddle with a few settings.
+If you need more flexibility you can get an instance of a `config` and fiddle with a few settings.
 
 ```go
 rows, _ := db.Query("SELECT * FROM users WHERE something=72")
 
-csvConverter := sqltocsvgzip.WriteConfig(rows)
+config := sqltocsvgzip.WriteConfig(rows)
 
-csvConverter.TimeFormat = time.RFC822
-csvConverter.Headers = append(rows.Columns(), "extra_column_one", "extra_column_two")
+config.TimeFormat = time.RFC822
+config.Headers = append(rows.Columns(), "extra_column_one", "extra_column_two")
 
-csvConverter.SetRowPreProcessor(func (columns []string) (bool, []string) {
+config.SetRowPreProcessor(func (columns []string) (bool, []string) {
     // exclude admins from report
     // NOTE: this is a dumb example because "where role != 'admin'" is better
     // but every now and then you need to exclude stuff because of calculations
@@ -124,14 +124,14 @@ csvConverter.SetRowPreProcessor(func (columns []string) (bool, []string) {
     return append(columns, extra_column_one, extra_column_two)
 })
 
-csvConverter.WriteFile("~/important_user_report.csv.gzip")
+config.WriteFile("~/important_user_report.csv.gzip")
 ```
 
 ### Defaults
 * 10Mb default csv buffer size.
 * 50Mb default zip buffer size.
 * Zipping: Default runtime.GOMAXPROCS(0) goroutines with 512Kb data/goroutine
-* Uploading: Default runtime.GOMAXPROCS(0) goroutines.
+* 4 concurrent upload goroutines.
 
 ### Caveats
 * Minimum PartUploadSize should be greater than 5 Mb.
@@ -142,11 +142,11 @@ csvConverter.WriteFile("~/important_user_report.csv.gzip")
 ### System Requirements
 * Minimum:
     * CPU: 2 vcpu
-    * Memory: [(vcpu + 3) x PartUploadSize](https://github.com/thatInfrastructureGuy/sqltocsvgzip/wiki/Memory-Footprint-Calculation)
+    * Memory: 500Mb (Depends on sql data size.)
     * Disk: Only needed if your writing to a file locally. (> size of gzip file)
 
 ---
 
 Credits:
-* [joho/sqltocsv](github.com/joho/sqltocsv)
+* [joho/sqltocsv](https://github.com/joho/sqltocsv)
 * [klauspost/pgzip](https://github.com/klauspost/pgzip)
