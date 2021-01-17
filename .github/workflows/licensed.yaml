@@ -1,0 +1,21 @@
+name: Licensed
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Check licenses
+    steps:
+      - uses: actions/checkout@master
+      - uses: jonabc/setup-licensed@v1
+        with:
+          version: '2.x' # required: must satisfy semver.validRange
+      
+      - run: |
+          licensed list
+          licensed status
