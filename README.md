@@ -7,7 +7,7 @@ A library designed to convert sql.Rows result from a query into a **CSV.GZIP** f
 * Concurrent multipart S3 uploads
 * Upload retries for resiliency
 * Uploading to S3 does not require local storage.
-* Consistent memory, cpu and network usage whether your database has 1 Million or 1 Trillion records.
+* Consistent memory, cpu and network usage irrespective of number of sql.Rows.
  
 ### Installation
 ```go 
@@ -94,7 +94,12 @@ http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Encoding", "gzip")
     w.Header().Set("Content-Disposition", "attachment; filename=\"report.csv.gzip\"")
 
-    sqltocsvgzip.Write(w, rows)
+    config := sqltocsvgzip.WriteConfig(rows)
+    err = config.Write(w)
+    if err != nil {
+        http.Error(w, err, http.StatusInternalServerError)
+        return
+    }
 })
 http.ListenAndServe(":8080", nil)
 ```
