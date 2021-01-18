@@ -49,6 +49,7 @@ type Converter struct {
 	UploadThreads         int
 	UploadPartSize        int
 	RowCount              int64
+	Error                 error
 
 	s3Svc            *s3.S3
 	s3Resp           *s3.CreateMultipartUploadOutput
@@ -58,7 +59,7 @@ type Converter struct {
 	gzipBuf          []byte
 	partNumber       int64
 	uploadQ          chan *obj
-	quit             chan bool
+	quit             chan error
 }
 
 // CsvPreprocessorFunc is a function type for preprocessing your CSV.

@@ -55,7 +55,7 @@ func (c *Converter) Upload() error {
 	wg := sync.WaitGroup{}
 	buf := bytes.Buffer{}
 	c.uploadQ = make(chan *obj, c.UploadThreads)
-	c.quit = make(chan bool, 1)
+	c.quit = make(chan error, 1)
 
 	// Upload Parts to S3
 	for i := 0; i < c.UploadThreads; i++ {
@@ -139,43 +139,40 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 }
 
 // Write writes the csv.gzip to the Writer provided
-func (c *Converter) Write(w io.Writer) error {
-	writeRow := true
+func (c *Converter) Write(w io.Writer) (err error) {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(interrupt)
 
-	csvWriter, csvBuffer := c.getCSVWriter()
+	toPreprocess := make(chan []interface{})
+	toCSV := make(chan []string)
+	toGzip := make(chan *csvBuf)
 
-	// Set headers
-	columnNames, totalColumns, err := c.setCSVHeaders(csvWriter)
-	if err != nil {
-		return err
-	}
+	go c.rowToCSV(toCSV, toGzip)
+	columnNames := <-toCSV
+
+	go c.preProcessRows(toPreprocess, columnNames, toCSV)
+	go c.csvToGzip(toGzip, w)
 
 	// Buffers for each iteration
-	values := make([]interface{}, totalColumns, totalColumns)
-	valuePtrs := make([]interface{}, totalColumns, totalColumns)
+	values := make([]interface{}, len(columnNames), len(columnNames))
+	valuePtrs := make([]interface{}, len(columnNames), len(columnNames))
 
 	for i := range columnNames {
 		valuePtrs[i] = &values[i]
 	}
 
-	zw, err := c.getGzipWriter(w)
-	if err != nil {
-		return err
-	}
-	defer zw.Close()
-
 	// Iterate over sql rows
 	for c.rows.Next() {
 		select {
-		case <-c.quit:
+		case err := <-c.quit:
+			close(toPreprocess)
 			c.abortMultipartUpload()
-			return fmt.Errorf("Received quit signal. Exiting.")
+			return fmt.Errorf("Error received: %v\n", err)
 		case <-interrupt:
+			close(toPreprocess)
 			c.abortMultipartUpload()
-			return fmt.Errorf("Received quit signal. Exiting.")
+			return fmt.Errorf("Received os interrupt signal. Exiting.")
 		default:
 			// Do nothing
 		}
@@ -184,60 +181,7 @@ func (c *Converter) Write(w io.Writer) error {
 			return err
 		}
 
-		row := c.stringify(values)
-
-		if c.rowPreProcessor != nil {
-			writeRow, row = c.rowPreProcessor(row, columnNames)
-		}
-
-		if writeRow {
-			c.RowCount = c.RowCount + 1
-
-			// Write to CSV Buffer
-			err = csvWriter.Write(row)
-			if err != nil {
-				return err
-			}
-			csvWriter.Flush()
-
-			// Convert from csv to gzip
-			// Writes from buffer to underlying file
-			if csvBuffer.Len() >= (c.GzipBatchPerGoroutine * c.GzipGoroutines) {
-				_, err = zw.Write(csvBuffer.Bytes())
-				if err != nil {
-					return err
-				}
-				err = zw.Flush()
-				if err != nil {
-					return err
-				}
-
-				// Reset buffer
-				csvBuffer.Reset()
-
-				// Upload partially created file to S3
-				// If size of the gzip file exceeds maxFileStorage
-				if c.S3Upload {
-					// GZIP writer to underline file.csv.gzip
-					gzipBuffer, ok := w.(*bytes.Buffer)
-					if !ok {
-						return fmt.Errorf("Expected buffer. Got %T", w)
-					}
-
-					if gzipBuffer.Len() >= c.UploadPartSize {
-						if c.partNumber == 10000 {
-							return fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")
-						}
-
-						// Add to Queue
-						c.AddToQueue(gzipBuffer, false)
-
-						//Reset writer
-						gzipBuffer.Reset()
-					}
-				}
-			}
-		}
+		toPreprocess <- values
 	}
 
 	err = c.rows.Err()
@@ -245,17 +189,7 @@ func (c *Converter) Write(w io.Writer) error {
 		return err
 	}
 
-	_, err = zw.Write(csvBuffer.Bytes())
-	if err != nil {
-		return err
-	}
-	err = zw.Close()
-	if err != nil {
-		return err
-	}
-
-	//Wipe the buffer
-	csvBuffer.Reset()
+	close(toPreprocess)
 
 	// Upload last part of the file to S3
 	if c.S3Upload {
@@ -333,9 +267,7 @@ func (c *Converter) UploadPart() (err error) {
 	for s3obj := range c.uploadQ {
 		err = c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
 		if err != nil {
-			c.writeLog(Error, "Error occurred. Sending quit signal to writer.")
-			c.quit <- true
-			c.abortMultipartUpload()
+			c.quit <- fmt.Errorf("Error uploading part: %v\n", err)
 			return err
 		}
 	}
