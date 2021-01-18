@@ -58,7 +58,7 @@ func (c *Converter) stringify(values []interface{}) []string {
 }
 
 func (c *Converter) preProcessRows(toPreprocess chan []interface{}, columnNames []string, toCSV chan []string) {
-	var writeRow bool
+	writeRow := true
 
 	for values := range toPreprocess {
 		row := c.stringify(values)

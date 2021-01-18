@@ -19,6 +19,13 @@ func (c *Converter) getGzipWriter(writer io.Writer) (*pgzip.Writer, error) {
 }
 
 func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
+	gzipBuffer, ok := w.(*bytes.Buffer)
+	if !ok {
+		c.Error = fmt.Errorf("Expected buffer. Got %T", w)
+		return
+	}
+
+	// GZIP writer to underline file.csv.gzip
 	zw, err := c.getGzipWriter(w)
 	if err != nil {
 		c.Error = fmt.Errorf("Error creating gzip writer: ", err)
@@ -41,13 +48,6 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
 		// Upload partially created file to S3
 		// If size of the gzip file exceeds maxFileStorage
 		if c.S3Upload {
-			// GZIP writer to underline file.csv.gzip
-			gzipBuffer, ok := w.(*bytes.Buffer)
-			if !ok {
-				c.Error = fmt.Errorf("Expected buffer. Got %T", w)
-				return
-			}
-
 			if csvBuf.lastPart || gzipBuffer.Len() >= c.UploadPartSize {
 				if c.partNumber == 10000 {
 					c.Error = fmt.Errorf("Number of parts cannot exceed 10000. Please increase UploadPartSize and try again.")

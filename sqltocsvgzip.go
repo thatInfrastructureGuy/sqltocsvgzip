@@ -191,27 +191,16 @@ func (c *Converter) Write(w io.Writer) (err error) {
 
 	close(toPreprocess)
 
-	// Upload last part of the file to S3
+	// Log the total number of rows processed.
+	c.writeLog(Info, fmt.Sprintf("Total sql rows processed: %v", c.RowCount))
+
+	// Check if we need to do direct upload
 	if c.S3Upload {
 		if c.partNumber == 0 {
 			return nil
 		}
-
-		// GZIP writer to underline file.csv.gzip
-		gzipBuffer, ok := w.(*bytes.Buffer)
-		if !ok {
-			return fmt.Errorf("Expected buffer. Got %T", w)
-		}
-
-		// Add to Queue for multipart upload
-		c.AddToQueue(gzipBuffer, true)
-
-		//Reset writer
-		gzipBuffer.Reset()
 	}
 
-	// Log the total number of rows processed.
-	c.writeLog(Info, fmt.Sprintf("Total sql rows processed: %v", c.RowCount))
 	return nil
 }
 
