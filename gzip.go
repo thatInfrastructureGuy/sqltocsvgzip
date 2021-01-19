@@ -50,6 +50,14 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
 			return
 		}
 
+		if csvBuf.lastPart {
+			err = zw.Close()
+			if err != nil {
+				c.quit <- fmt.Errorf("Error flushing contents to gzip writer: ", err)
+				return
+			}
+		}
+
 		// Upload partially created file to S3
 		// If size of the gzip file exceeds maxFileStorage
 		if c.S3Upload {
