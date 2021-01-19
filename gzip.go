@@ -34,7 +34,7 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer, wg *sync.WaitGro
 	// GZIP writer to underline file.csv.gzip
 	zw, err := c.getGzipWriter(w)
 	if err != nil {
-		c.quit <- fmt.Errorf("Error creating gzip writer: ", err)
+		c.quit <- fmt.Errorf("Error creating gzip writer: %v", err)
 		return
 	}
 	defer zw.Close()
@@ -42,20 +42,20 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer, wg *sync.WaitGro
 	for csvBuf := range toGzip {
 		_, err = zw.Write(csvBuf.data)
 		if err != nil {
-			c.quit <- fmt.Errorf("Error writing to gzip buffer: ", err)
+			c.quit <- fmt.Errorf("Error writing to gzip buffer: %v", err)
 			return
 		}
 
 		if csvBuf.lastPart {
 			err = zw.Close()
 			if err != nil {
-				c.quit <- fmt.Errorf("Error flushing contents to gzip writer: ", err)
+				c.quit <- fmt.Errorf("Error flushing contents to gzip writer: %v", err)
 				return
 			}
 		} else {
 			err = zw.Flush()
 			if err != nil {
-				c.quit <- fmt.Errorf("Error flushing contents to gzip writer: ", err)
+				c.quit <- fmt.Errorf("Error flushing contents to gzip writer: %v", err)
 				return
 			}
 		}
