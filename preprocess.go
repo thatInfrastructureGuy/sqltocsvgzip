@@ -68,6 +68,7 @@ func (c *Converter) preProcessRows(toPreprocess chan []interface{}, columnNames 
 		}
 
 		if writeRow {
+			fmt.Println("[DEBUG] row:", row)
 			toCSV <- row
 		}
 	}

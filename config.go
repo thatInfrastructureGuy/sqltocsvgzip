@@ -49,7 +49,6 @@ type Converter struct {
 	UploadThreads         int
 	UploadPartSize        int
 	RowCount              int64
-	Error                 error
 
 	s3Svc            *s3.S3
 	s3Resp           *s3.CreateMultipartUploadOutput

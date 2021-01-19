@@ -176,6 +176,7 @@ func (c *Converter) Write(w io.Writer) (err error) {
 			return err
 		}
 
+		fmt.Println("[DEBUG] Sending row to preprocess: ", c.RowCount)
 		toPreprocess <- values
 	}
 
