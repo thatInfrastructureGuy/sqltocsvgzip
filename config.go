@@ -75,6 +75,23 @@ func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
 	c.rowPreProcessor = processor
 }
 
+func getLogLevel() (level LogLevel) {
+	levels := map[string]LogLevel{
+		"ERROR":   Error,
+		"WARN":    Warn,
+		"INFO":    Info,
+		"DEBUG":   Debug,
+		"VERBOSE": Verbose,
+	}
+
+	var ok bool
+	if level, ok = levels[os.Getenv("LOG_LEVEL")]; !ok {
+		level = Info
+	}
+
+	return
+}
+
 // WriteConfig will return a Converter which will write your CSV however you like
 // but will allow you to set a bunch of non-default behaivour like overriding
 // headers or injecting a pre-processing step into your conversion
@@ -88,7 +105,7 @@ func WriteConfig(rows *sql.Rows) *Converter {
 		CompressionLevel:      flate.DefaultCompression,
 		GzipGoroutines:        runtime.GOMAXPROCS(0), // Should be atleast the number of cores. Not sure how it impacts cgroup limits.
 		GzipBatchPerGoroutine: 512 * 1024,            // Should be atleast 100K
-		LogLevel:              Info,
+		LogLevel:              getLogLevel(),
 	}
 }
 
@@ -103,7 +120,7 @@ func UploadConfig(rows *sql.Rows) *Converter {
 		CsvBufferSize:         10 * 1024 * 1024,
 		GzipGoroutines:        runtime.GOMAXPROCS(0), // Should be atleast the number of cores. Not sure how it impacts cgroup limits.
 		GzipBatchPerGoroutine: 512 * 1024,            // Should be atleast 100K
-		LogLevel:              Info,
+		LogLevel:              getLogLevel(),
 		S3Upload:              true,
 		UploadThreads:         4,
 		UploadPartSize:        50 * 1024 * 1025, // Should be greater than 5 * 1024 * 1024 for s3 upload
