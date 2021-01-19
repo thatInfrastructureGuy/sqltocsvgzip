@@ -19,10 +19,14 @@ func (c *Converter) getGzipWriter(writer io.Writer) (*pgzip.Writer, error) {
 }
 
 func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
-	gzipBuffer, ok := w.(*bytes.Buffer)
-	if !ok {
-		c.quit <- fmt.Errorf("Expected buffer. Got %T", w)
-		return
+	var gzipBuffer *bytes.Buffer
+	if c.S3Upload {
+		var ok bool
+		gzipBuffer, ok = w.(*bytes.Buffer)
+		if !ok {
+			c.quit <- fmt.Errorf("Expected buffer. Got %T", w)
+			return
+		}
 	}
 
 	// GZIP writer to underline file.csv.gzip
@@ -36,6 +40,7 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
 	for csvBuf := range toGzip {
 		n, err := zw.Write(csvBuf.data)
 		fmt.Println("[DEBUG] zw written:", n)
+		fmt.Println("[DEBUG] zw flushed:", zw.UncompressedSize())
 		if err != nil {
 			c.quit <- fmt.Errorf("Error writing to gzip buffer: ", err)
 			return
@@ -46,8 +51,6 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
 			c.quit <- fmt.Errorf("Error flushing contents to gzip writer: ", err)
 			return
 		}
-
-		fmt.Println("[DEBUG] zw flushed:", zw.UncompressedSize())
 
 		// Upload partially created file to S3
 		// If size of the gzip file exceeds maxFileStorage
