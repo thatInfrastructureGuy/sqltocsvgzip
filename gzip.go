@@ -38,9 +38,7 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
 	defer zw.Close()
 
 	for csvBuf := range toGzip {
-		n, err := zw.Write(csvBuf.data)
-		fmt.Println("[DEBUG] zw written:", n)
-		fmt.Println("[DEBUG] zw flushed:", zw.UncompressedSize())
+		_, err = zw.Write(csvBuf.data)
 		if err != nil {
 			c.quit <- fmt.Errorf("Error writing to gzip buffer: ", err)
 			return

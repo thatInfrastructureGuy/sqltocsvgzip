@@ -79,7 +79,6 @@ func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf) {
 
 		// Convert from csv to gzip
 		if csvBuffer.Len() >= (c.GzipBatchPerGoroutine * c.GzipGoroutines) {
-			fmt.Println("[DEBUG] csvBuffer Len:", csvBuffer.Len())
 			toGzip <- &csvBuf{
 				data:     csvBuffer.Bytes(),
 				lastPart: false,
@@ -90,7 +89,6 @@ func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf) {
 		}
 	}
 
-	fmt.Println("[DEBUG] csvBuffer Len:", csvBuffer.Len())
 	// Flush remaining buffer contents to gzip
 	toGzip <- &csvBuf{
 		data:     csvBuffer.Bytes(),
