@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/klauspost/pgzip"
 )
@@ -18,7 +19,8 @@ func (c *Converter) getGzipWriter(writer io.Writer) (*pgzip.Writer, error) {
 	return zw, err
 }
 
-func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
+func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer, wg *sync.WaitGroup) {
+	defer wg.Done()
 	var gzipBuffer *bytes.Buffer
 	if c.S3Upload {
 		var ok bool

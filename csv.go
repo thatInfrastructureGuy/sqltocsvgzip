@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"sync"
 )
 
 type csvBuf struct {
@@ -53,7 +54,8 @@ func (c *Converter) setCSVHeaders(csvWriter *csv.Writer) ([]string, error) {
 	return headers, nil
 }
 
-func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf) {
+func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf, wg *sync.WaitGroup) {
+	defer wg.Done()
 	csvWriter, csvBuffer := c.getCSVWriter()
 	// Set headers
 	columnNames, err := c.setCSVHeaders(csvWriter)

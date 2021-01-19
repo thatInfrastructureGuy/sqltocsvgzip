@@ -53,7 +53,7 @@ func (c *Converter) Upload() (rowCount int64, err error) {
 	}
 
 	c.uploadQ = make(chan *obj, c.UploadThreads)
-	wg := sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 
 	// Upload Parts to S3
 	for i := 0; i < c.UploadThreads; i++ {
@@ -143,11 +143,13 @@ func (c *Converter) Write(w io.Writer) (err error) {
 	toCSV := make(chan []string)
 	toGzip := make(chan *csvBuf)
 
-	go c.rowToCSV(toCSV, toGzip)
+	// Create 3 goroutines
+	wg := &sync.WaitGroup{}
+	wg.Add(3)
+	go c.rowToCSV(toCSV, toGzip, wg)
 	columnNames := <-toCSV
-
-	go c.preProcessRows(toPreprocess, columnNames, toCSV)
-	go c.csvToGzip(toGzip, w)
+	go c.preProcessRows(toPreprocess, columnNames, toCSV, wg)
+	go c.csvToGzip(toGzip, w, wg)
 
 	// Buffers for each iteration
 	values := make([]interface{}, len(columnNames), len(columnNames))
@@ -185,6 +187,8 @@ func (c *Converter) Write(w io.Writer) (err error) {
 	}
 
 	close(toPreprocess)
+
+	wg.Wait()
 
 	// Log the total number of rows processed.
 	c.writeLog(Info, fmt.Sprintf("Total sql rows processed: %v", c.RowCount))

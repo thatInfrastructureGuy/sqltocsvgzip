@@ -3,6 +3,7 @@ package sqltocsvgzip
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -57,7 +58,8 @@ func (c *Converter) stringify(values []interface{}) []string {
 	return row
 }
 
-func (c *Converter) preProcessRows(toPreprocess chan []interface{}, columnNames []string, toCSV chan []string) {
+func (c *Converter) preProcessRows(toPreprocess chan []interface{}, columnNames []string, toCSV chan []string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	writeRow := true
 
 	for values := range toPreprocess {
