@@ -61,5 +61,7 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
 				gzipBuffer.Reset()
 			}
 		}
+		close(c.uploadQ)
 	}
+
 }

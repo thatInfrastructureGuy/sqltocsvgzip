@@ -52,23 +52,19 @@ func (c *Converter) Upload() error {
 		return err
 	}
 
-	wg := sync.WaitGroup{}
-	buf := bytes.Buffer{}
 	c.uploadQ = make(chan *obj, c.UploadThreads)
-	c.quit = make(chan error, 1)
+	wg := sync.WaitGroup{}
 
 	// Upload Parts to S3
 	for i := 0; i < c.UploadThreads; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err = c.UploadPart()
-			if err != nil {
-				c.writeLog(Error, err.Error())
-			}
+			c.UploadPart()
 		}()
 	}
 
+	buf := bytes.Buffer{}
 	err = c.Write(&buf)
 	if err != nil {
 		// Abort S3 Upload
@@ -79,7 +75,6 @@ func (c *Converter) Upload() error {
 		return err
 	}
 
-	close(c.uploadQ)
 	wg.Wait()
 
 	if c.partNumber == 0 {
@@ -251,17 +246,16 @@ func (c *Converter) AddToQueue(buf *bytes.Buffer, lastPart bool) {
 // UploadPart listens to upload queue. Whenever an obj is received,
 // it is then uploaded to AWS.
 // Abort operation is called if any error is received.
-func (c *Converter) UploadPart() (err error) {
+func (c *Converter) UploadPart() {
 	mu := &sync.RWMutex{}
 	for s3obj := range c.uploadQ {
-		err = c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
+		err := c.uploadPart(s3obj.partNumber, s3obj.buf, mu)
 		if err != nil {
 			c.quit <- fmt.Errorf("Error uploading part: %v\n", err)
-			return err
+			return
 		}
 	}
 	c.writeLog(Debug, "Received closed signal")
-	return
 }
 
 // writeLog decides whether to write a log to stdout depending on LogLevel.

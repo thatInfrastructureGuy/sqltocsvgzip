@@ -81,6 +81,7 @@ func (c *Converter) SetRowPreProcessor(processor CsvPreProcessorFunc) {
 func WriteConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
+		quit:                  make(chan error, 1),
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CsvBufferSize:         10 * 1024 * 1024,
@@ -95,6 +96,7 @@ func WriteConfig(rows *sql.Rows) *Converter {
 func UploadConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
+		quit:                  make(chan error, 1),
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,
