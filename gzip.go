@@ -63,7 +63,7 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
 		}
 	}
 
-	// Close channel.
+	// Close channel after sending complete.
 	if c.S3Upload {
 		close(c.uploadQ)
 	}
