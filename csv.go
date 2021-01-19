@@ -61,7 +61,7 @@ func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf, wg *sync.
 	columnNames, err := c.setCSVHeaders(csvWriter)
 	if err != nil {
 		close(toGzip)
-		c.quit <- fmt.Errorf("Error setting CSV Headers: ", err)
+		c.quit <- fmt.Errorf("Error setting CSV Headers: %v", err)
 		return
 	}
 
@@ -74,7 +74,7 @@ func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf, wg *sync.
 		err = csvWriter.Write(row)
 		if err != nil {
 			close(toGzip)
-			c.quit <- fmt.Errorf("Error writing to csv buffer: ", err)
+			c.quit <- fmt.Errorf("Error writing to csv buffer: %v", err)
 			return
 		}
 		csvWriter.Flush()
