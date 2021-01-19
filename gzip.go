@@ -46,14 +46,14 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer, wg *sync.WaitGro
 			return
 		}
 
-		err = zw.Flush()
-		if err != nil {
-			c.quit <- fmt.Errorf("Error flushing contents to gzip writer: ", err)
-			return
-		}
-
 		if csvBuf.lastPart {
 			err = zw.Close()
+			if err != nil {
+				c.quit <- fmt.Errorf("Error flushing contents to gzip writer: ", err)
+				return
+			}
+		} else {
+			err = zw.Flush()
 			if err != nil {
 				c.quit <- fmt.Errorf("Error flushing contents to gzip writer: ", err)
 				return
