@@ -19,7 +19,7 @@ import (
 
 // WriteFile will write a CSV.GZIP file to the file name specified (with headers)
 // based on whatever is in the sql.Rows you pass in.
-func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
+func WriteFile(csvGzipFileName string, rows *sql.Rows) (rowCount int64, err error) {
 	return WriteConfig(rows).WriteFile(csvGzipFileName)
 }
 
@@ -28,7 +28,7 @@ func WriteFile(csvGzipFileName string, rows *sql.Rows) error {
 // UploadToS3 looks for the following environment variables.
 // Required: S3_BUCKET, S3_PATH, S3_REGION
 // Optional: S3_ACL (default => bucket-owner-full-control)
-func UploadToS3(rows *sql.Rows) error {
+func UploadToS3(rows *sql.Rows) (rowCount int64, err error) {
 	return UploadConfig(rows).Upload()
 }
 
@@ -36,20 +36,20 @@ func UploadToS3(rows *sql.Rows) error {
 // Creates a Multipart AWS requests.
 // Completes the multipart request if all uploads are successful.
 // Aborts the operation when an error is received.
-func (c *Converter) Upload() error {
+func (c *Converter) Upload() (rowCount int64, err error) {
 	if c.UploadPartSize < minFileSize {
-		return fmt.Errorf("UploadPartSize should be greater than %v\n", minFileSize)
+		return 0, fmt.Errorf("UploadPartSize should be greater than %v\n", minFileSize)
 	}
 
 	// Create MultiPart S3 Upload
-	err := c.createS3Session()
+	err = c.createS3Session()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	err = c.createMultipartRequest()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	wg := sync.WaitGroup{}
@@ -74,9 +74,9 @@ func (c *Converter) Upload() error {
 		// Abort S3 Upload
 		awserr := c.abortMultipartUpload()
 		if awserr != nil {
-			return awserr
+			return 0, awserr
 		}
-		return err
+		return 0, err
 	}
 
 	close(c.uploadQ)
@@ -87,14 +87,14 @@ func (c *Converter) Upload() error {
 		c.writeLog(Info, "Gzip file < 5 MB. Enable direct upload. Abort multipart upload.")
 		err = c.abortMultipartUpload()
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		err = c.UploadObjectToS3(&buf)
 		if err != nil {
-			return err
+			return 0, err
 		}
-		return nil
+		return c.RowCount, nil
 	}
 
 	// Sort completed parts
@@ -105,25 +105,25 @@ func (c *Converter) Upload() error {
 		// Abort S3 Upload
 		awserr := c.abortMultipartUpload()
 		if awserr != nil {
-			return awserr
+			return 0, awserr
 		}
-		return err
+		return 0, err
 	}
 
 	uploadPath, err := url.PathUnescape(completeResponse.String())
 	if err != nil {
-		return err
+		return 0, err
 	}
 	c.writeLog(Info, "Successfully uploaded file: "+uploadPath)
 
-	return nil
+	return c.RowCount, nil
 }
 
 // WriteFile writes the csv.gzip to the filename specified, return an error if problem
-func (c *Converter) WriteFile(csvGzipFileName string) error {
+func (c *Converter) WriteFile(csvGzipFileName string) (rowCount int64, err error) {
 	f, err := os.Create(csvGzipFileName)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer f.Close()
 
@@ -132,10 +132,10 @@ func (c *Converter) WriteFile(csvGzipFileName string) error {
 
 	err = c.Write(f)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return c.RowCount, nil
 }
 
 // Write writes the csv.gzip to the Writer provided
