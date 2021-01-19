@@ -188,14 +188,6 @@ func (c *Converter) Write(w io.Writer) (err error) {
 
 	// Log the total number of rows processed.
 	c.writeLog(Info, fmt.Sprintf("Total sql rows processed: %v", c.RowCount))
-
-	// Check if we need to do direct upload
-	if c.S3Upload {
-		if c.partNumber == 0 {
-			return nil
-		}
-	}
-
 	return nil
 }
 

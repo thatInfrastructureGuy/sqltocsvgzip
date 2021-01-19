@@ -39,10 +39,19 @@ func (c *Converter) csvToGzip(toGzip chan *csvBuf, w io.Writer) {
 			c.Error = fmt.Errorf("Error writing to gzip buffer: ", err)
 			return
 		}
+
 		err = zw.Flush()
 		if err != nil {
 			c.Error = fmt.Errorf("Error flushing contents to gzip writer: ", err)
 			return
+		}
+
+		if csvBuf.lastPart {
+			err = zw.Close()
+			if err != nil {
+				c.Error = fmt.Errorf("Error closing gzip writer: ", err)
+				return
+			}
 		}
 
 		// Upload partially created file to S3
