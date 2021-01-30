@@ -27,45 +27,45 @@ func (c *Converter) getCSVWriter() (*csv.Writer, *bytes.Buffer) {
 	return csvWriter, csvBuffer
 }
 
-func (c *Converter) setCSVHeaders(csvWriter *csv.Writer) ([]string, error) {
-	var headers []string
+func (c *Converter) getCSVHeaders(csvWriter *csv.Writer) (headers []string, err error) {
 	columnNames, err := c.rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 
-	if c.WriteHeaders {
-		// use Headers if set, otherwise default to
-		// query Columns
-		if len(c.Headers) > 0 {
-			headers = c.Headers
-		} else {
-			headers = columnNames
-		}
+	// use Headers if set, otherwise default to
+	// query Columns
+	if len(c.Headers) > 0 {
+		headers = c.Headers
+	} else {
+		headers = columnNames
 	}
 
 	// Write to CSV Buffer
-	err = csvWriter.Write(headers)
-	if err != nil {
-		return nil, err
+	if c.WriteHeaders {
+		err = csvWriter.Write(headers)
+		if err != nil {
+			return nil, err
+		}
+		csvWriter.Flush()
 	}
-	csvWriter.Flush()
 
-	return headers, nil
+	return
 }
 
-func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf, wg *sync.WaitGroup) {
+func (c *Converter) rowToCSV(getHeaders, toCSV chan []string, toGzip chan csvBuf, wg *sync.WaitGroup) {
 	defer wg.Done()
 	csvWriter, csvBuffer := c.getCSVWriter()
-	// Set headers
-	columnNames, err := c.setCSVHeaders(csvWriter)
+
+	// Get headers
+	columnNames, err := c.getCSVHeaders(csvWriter)
 	if err != nil {
 		close(toGzip)
 		c.quit <- fmt.Errorf("Error setting CSV Headers: %v", err)
 		return
 	}
 
-	toCSV <- columnNames
+	getHeaders <- columnNames
 
 	for row := range toCSV {
 		c.RowCount = c.RowCount + 1
@@ -81,7 +81,7 @@ func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf, wg *sync.
 
 		// Convert from csv to gzip
 		if csvBuffer.Len() >= (c.GzipBatchPerGoroutine * c.GzipGoroutines) {
-			toGzip <- &csvBuf{
+			toGzip <- csvBuf{
 				data:     csvBuffer.Bytes(),
 				lastPart: false,
 			}
@@ -92,7 +92,7 @@ func (c *Converter) rowToCSV(toCSV chan []string, toGzip chan *csvBuf, wg *sync.
 	}
 
 	// Flush remaining buffer contents to gzip
-	toGzip <- &csvBuf{
+	toGzip <- csvBuf{
 		data:     csvBuffer.Bytes(),
 		lastPart: true,
 	}

@@ -140,22 +140,24 @@ func (c *Converter) Write(w io.Writer) (err error) {
 	defer signal.Stop(interrupt)
 
 	toPreprocess := make(chan []interface{})
-	toCSV := make(chan []string)
-	toGzip := make(chan *csvBuf)
+	getHeaders, toCSV := make(chan []string), make(chan []string)
+	toGzip := make(chan csvBuf)
 
 	// Create 3 goroutines
 	wg := &sync.WaitGroup{}
 	wg.Add(3)
-	go c.rowToCSV(toCSV, toGzip, wg)
-	columnNames := <-toCSV
-	go c.preProcessRows(toPreprocess, columnNames, toCSV, wg)
+
+	go c.rowToCSV(getHeaders, toCSV, toGzip, wg)
+	headers := <-getHeaders
+
+	go c.preProcessRows(toPreprocess, headers, toCSV, wg)
 	go c.csvToGzip(toGzip, w, wg)
 
 	// Buffers for each iteration
-	values := make([]interface{}, len(columnNames), len(columnNames))
-	valuePtrs := make([]interface{}, len(columnNames), len(columnNames))
+	values := make([]interface{}, len(headers), len(headers))
+	valuePtrs := make([]interface{}, len(headers), len(headers))
 
-	for i := range columnNames {
+	for i := range headers {
 		valuePtrs[i] = &values[i]
 	}
 
