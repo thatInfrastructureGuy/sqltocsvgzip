@@ -58,7 +58,7 @@ type Converter struct {
 	gzipBuf          []byte
 	partNumber       int64
 	uploadQ          chan *obj
-	quit             chan bool
+	quit             chan error
 }
 
 // CsvPreprocessorFunc is a function type for preprocessing your CSV.
@@ -97,6 +97,7 @@ func getLogLevel() (level LogLevel) {
 func WriteConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
+		quit:                  make(chan error, 1),
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CsvBufferSize:         10 * 1024 * 1024,
@@ -111,6 +112,7 @@ func WriteConfig(rows *sql.Rows) *Converter {
 func UploadConfig(rows *sql.Rows) *Converter {
 	return &Converter{
 		rows:                  rows,
+		quit:                  make(chan error, 1),
 		WriteHeaders:          true,
 		Delimiter:             ',',
 		CompressionLevel:      flate.DefaultCompression,

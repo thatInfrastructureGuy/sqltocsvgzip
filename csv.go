@@ -4,9 +4,13 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
-	"strconv"
-	"time"
+	"sync"
 )
+
+type csvBuf struct {
+	data     []byte
+	lastPart bool
+}
 
 func (c *Converter) getCSVWriter() (*csv.Writer, *bytes.Buffer) {
 	// Same size as sqlRowBatch
@@ -23,80 +27,78 @@ func (c *Converter) getCSVWriter() (*csv.Writer, *bytes.Buffer) {
 	return csvWriter, csvBuffer
 }
 
-func (c *Converter) setCSVHeaders(csvWriter *csv.Writer) ([]string, int, error) {
-	var headers []string
+func (c *Converter) getCSVHeaders(csvWriter *csv.Writer) (headers []string, err error) {
 	columnNames, err := c.rows.Columns()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	if c.WriteHeaders {
-		// use Headers if set, otherwise default to
-		// query Columns
-		if len(c.Headers) > 0 {
-			headers = c.Headers
-		} else {
-			headers = columnNames
-		}
+	// use Headers if set, otherwise default to
+	// query Columns
+	if len(c.Headers) > 0 {
+		headers = c.Headers
+	} else {
+		headers = columnNames
 	}
 
 	// Write to CSV Buffer
-	err = csvWriter.Write(headers)
-	if err != nil {
-		return nil, 0, err
+	if c.WriteHeaders {
+		err = csvWriter.Write(headers)
+		if err != nil {
+			return nil, err
+		}
+		csvWriter.Flush()
 	}
-	csvWriter.Flush()
 
-	return headers, len(headers), nil
+	return
 }
 
-func (c *Converter) stringify(values []interface{}) []string {
-	row := make([]string, len(values), len(values))
+func (c *Converter) rowToCSV(getHeaders, toCSV chan []string, toGzip chan csvBuf, wg *sync.WaitGroup) {
+	defer wg.Done()
+	csvWriter, csvBuffer := c.getCSVWriter()
 
-	for i, rawValue := range values {
-		if rawValue == nil {
-			row[i] = ""
-			continue
+	// Get headers
+	columnNames, err := c.getCSVHeaders(csvWriter)
+	if err != nil {
+		close(toGzip)
+		c.quit <- fmt.Errorf("Error setting CSV Headers: %v", err)
+		return
+	}
+
+	getHeaders <- columnNames
+
+	for row := range toCSV {
+		c.RowCount = c.RowCount + 1
+
+		// Write to CSV Buffer
+		err = csvWriter.Write(row)
+		if err != nil {
+			close(toGzip)
+			c.quit <- fmt.Errorf("Error writing to csv buffer: %v", err)
+			return
 		}
+		csvWriter.Flush()
 
-		byteArray, ok := rawValue.([]byte)
-		if ok {
-			rawValue = string(byteArray)
-		}
-
-		switch castValue := rawValue.(type) {
-		case time.Time:
-			if c.TimeFormat != "" {
-				row[i] = castValue.Format(c.TimeFormat)
+		// Convert from csv to gzip
+		if csvBuffer.Len() >= (c.GzipBatchPerGoroutine * c.GzipGoroutines) {
+			toGzip <- csvBuf{
+				data:     csvBuffer.Bytes(),
+				lastPart: false,
 			}
-		case bool:
-			row[i] = strconv.FormatBool(castValue)
-		case string:
-			row[i] = castValue
-		case int:
-			row[i] = strconv.FormatInt(int64(castValue), 10)
-		case int8:
-			row[i] = strconv.FormatInt(int64(castValue), 10)
-		case int16:
-			row[i] = strconv.FormatInt(int64(castValue), 10)
-		case int32:
-			row[i] = strconv.FormatInt(int64(castValue), 10)
-		case int64:
-			row[i] = strconv.FormatInt(int64(castValue), 10)
-		case uint:
-			row[i] = strconv.FormatUint(uint64(castValue), 10)
-		case uint8:
-			row[i] = strconv.FormatUint(uint64(castValue), 10)
-		case uint16:
-			row[i] = strconv.FormatUint(uint64(castValue), 10)
-		case uint32:
-			row[i] = strconv.FormatUint(uint64(castValue), 10)
-		case uint64:
-			row[i] = strconv.FormatUint(uint64(castValue), 10)
-		default:
-			row[i] = fmt.Sprintf("%v", castValue)
+
+			// Reset buffer
+			csvBuffer.Reset()
 		}
 	}
 
-	return row
+	// Flush remaining buffer contents to gzip
+	toGzip <- csvBuf{
+		data:     csvBuffer.Bytes(),
+		lastPart: true,
+	}
+
+	// Reset buffer
+	csvBuffer.Reset()
+
+	close(toGzip)
 }
