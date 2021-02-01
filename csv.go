@@ -30,22 +30,22 @@ func (c *Converter) setCSVHeaders(csvWriter *csv.Writer) ([]string, int, error) 
 		return nil, 0, err
 	}
 
-	if c.WriteHeaders {
-		// use Headers if set, otherwise default to
-		// query Columns
-		if len(c.Headers) > 0 {
-			headers = c.Headers
-		} else {
-			headers = columnNames
-		}
+	// Use Headers if set, otherwise default to
+	// query Columns
+	if len(c.Headers) > 0 {
+		headers = c.Headers
+	} else {
+		headers = columnNames
 	}
 
 	// Write to CSV Buffer
-	err = csvWriter.Write(headers)
-	if err != nil {
-		return nil, 0, err
+	if c.WriteHeaders {
+		err = csvWriter.Write(headers)
+		if err != nil {
+			return nil, 0, err
+		}
+		csvWriter.Flush()
 	}
-	csvWriter.Flush()
 
 	return headers, len(headers), nil
 }
