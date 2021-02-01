@@ -11,7 +11,7 @@ A library designed to convert sql.Rows result from a query into a **CSV.GZIP** f
  
 ### Installation
 ```go 
-go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.10
+go get github.com/thatInfrastructureGuy/sqltocsvgzip@v0.0.13
 ```
 
 _Note: Please do not use master branch. Master branch may contain breaking changes. Use tags instead._
