@@ -1,4 +1,4 @@
-# [sqltocsvgzip](https://pkg.go.dev/github.com/thatInfrastructureGuy/sqltocsvgzip) [![Build Status](https://travis-ci.com/thatInfrastructureGuy/sqltocsvgzip.svg?branch=master)](https://travis-ci.com/github/thatInfrastructureGuy/sqltocsvgzip)
+# [sqltocsvgzip](https://pkg.go.dev/github.com/thatInfrastructureGuy/sqltocsvgzip) [![Go](https://github.com/thatInfrastructureGuy/sqltocsvgzip/actions/workflows/go.yml/badge.svg)](https://github.com/thatInfrastructureGuy/sqltocsvgzip/actions/workflows/go.yml)
 
 A library designed to convert sql.Rows result from a query into a **CSV.GZIP** file and/or **upload to AWS S3**.
 
